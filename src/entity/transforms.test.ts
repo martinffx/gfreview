@@ -16,6 +16,7 @@ describe('isStale', () => {
     mrIid: 1,
     startedAt: '2024-01-01T00:00:00Z',
     versions: { headSha: 'abc123' },
+    reviewId: 1,
     comments: [],
   };
 

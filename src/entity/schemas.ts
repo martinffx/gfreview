@@ -131,6 +131,7 @@ export const ReviewSessionSchema = z.object({
   mrIid: z.number(),
   startedAt: z.string(),
   versions: DiffVersionSchema,
+  reviewId: z.number().optional(),
   comments: z.array(ReviewCommentSchema).optional(),
   draftNoteIds: z.array(z.number()).optional(),
 });

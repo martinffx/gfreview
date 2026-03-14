@@ -17,6 +17,7 @@ describe('SessionStore', () => {
     versions: {
       headSha: 'abc123',
     },
+    reviewId: 1,
     comments: [{ id: '1', file: 'test.ts', line: 10, side: 'new', body: 'Great code!' }],
   };
 
