@@ -6,7 +6,7 @@ No ergonomic CLI exists for posting inline diff comments on merge/pull requests 
 
 `gfreview` wraps this into a purpose-built CLI with a consistent interface across forges. The first supported forge is GitLab.
 
------
+---
 
 ## Goals
 
@@ -22,7 +22,7 @@ No ergonomic CLI exists for posting inline diff comments on merge/pull requests 
 - Full repository/project management (that's `glab` / `gh`)
 - GitHub support in v0.1 — architecture must support it, implementation deferred
 
------
+---
 
 ## Forge abstraction
 
@@ -57,30 +57,30 @@ The interface describes the caller's intent — start a review, add a comment, s
 ```typescript
 interface ForgeClient {
   // PR management
-  listPRs(opts: ListOpts): Promise<PR[]>
-  getPR(id: number): Promise<PR>
-  createPR(opts: CreateOpts): Promise<PR>
-  deletePR(id: number): Promise<void>
-  approvePR(id: number): Promise<void>
-  unapprovePR(id: number): Promise<void>
-  mergePR(id: number): Promise<void>
+  listPRs(opts: ListOpts): Promise<PR[]>;
+  getPR(id: number): Promise<PR>;
+  createPR(opts: CreateOpts): Promise<PR>;
+  deletePR(id: number): Promise<void>;
+  approvePR(id: number): Promise<void>;
+  unapprovePR(id: number): Promise<void>;
+  mergePR(id: number): Promise<void>;
 
   // Diff
-  getDiff(id: number): Promise<FileDiff[]>
-  getVersions(id: number): Promise<DiffVersion[]>
+  getDiff(id: number): Promise<FileDiff[]>;
+  getVersions(id: number): Promise<DiffVersion[]>;
 
   // Review
-  startReview(id: number): Promise<ReviewSession>
-  addReviewComment(id: number, opts: ReviewCommentOpts): Promise<ReviewComment>
-  listReviewComments(id: number): Promise<ReviewComment[]>
-  deleteReviewComment(id: number, commentId: string): Promise<void>
-  submitReview(id: number, opts?: SubmitOpts): Promise<void>
-  discardReview(id: number): Promise<void>
+  startReview(id: number): Promise<ReviewSession>;
+  addReviewComment(id: number, opts: ReviewCommentOpts): Promise<ReviewComment>;
+  listReviewComments(id: number): Promise<ReviewComment[]>;
+  deleteReviewComment(id: number, commentId: string): Promise<void>;
+  submitReview(id: number, opts?: SubmitOpts): Promise<void>;
+  discardReview(id: number): Promise<void>;
 
   // Discussions (published threads)
-  listDiscussions(id: number): Promise<Discussion[]>
-  postNote(id: number, body: string): Promise<Note>
-  resolveThread(id: number, discussionId: string, resolved: boolean): Promise<void>
+  listDiscussions(id: number): Promise<Discussion[]>;
+  postNote(id: number, body: string): Promise<Note>;
+  resolveThread(id: number, discussionId: string, resolved: boolean): Promise<void>;
 }
 ```
 
@@ -90,35 +90,35 @@ The `id` parameter is the PR identifier for the forge — `iid` on GitLab, `numb
 
 ```typescript
 interface ReviewSession {
-  startedAt: string                  // ISO 8601
-  versions: DiffVersion              // cached SHAs at start time
+  startedAt: string; // ISO 8601
+  versions: DiffVersion; // cached SHAs at start time
 }
 
 interface DiffVersion {
-  headSha: string
-  baseSha: string
-  startSha: string
+  headSha: string;
+  baseSha: string;
+  startSha: string;
 }
 
 interface ReviewCommentOpts {
-  file: string
-  line: number                       // new-file line for added/context, old-file line for removed
-  lineEnd?: number                   // for multi-line comments
-  side: 'new' | 'old'               // which side of the diff the line refers to
-  body: string
+  file: string;
+  line: number; // new-file line for added/context, old-file line for removed
+  lineEnd?: number; // for multi-line comments
+  side: 'new' | 'old'; // which side of the diff the line refers to
+  body: string;
 }
 
 interface ReviewComment {
-  id: string
-  file: string
-  line: number
-  lineEnd?: number
-  side: 'new' | 'old'
-  body: string
+  id: string;
+  file: string;
+  line: number;
+  lineEnd?: number;
+  side: 'new' | 'old';
+  body: string;
 }
 
 interface SubmitOpts {
-  body?: string                      // optional summary comment
+  body?: string; // optional summary comment
 }
 ```
 
@@ -128,7 +128,7 @@ interface SubmitOpts {
 
 **GitHub client:** `startReview` fetches the PR head SHA and caches it. `addReviewComment` writes to local session state — GitHub has no server-side draft comment API. `listReviewComments` reads from local state. `submitReview` packs all staged comments into a single `POST /reviews` call with a `comments` array. `discardReview` clears local session state. Because drafts are local, a review can only be managed from the machine where it was started.
 
------
+---
 
 ## Configuration
 
@@ -151,7 +151,7 @@ project = "mygroup/myrepo"
 
 `--project` and `--forge` flags on any command override config. If project is omitted and inside a git repo, inferred from `git remote get-url origin`.
 
------
+---
 
 ## Commands
 
@@ -224,7 +224,7 @@ gfreview note <id> --body <text>       # general (non-inline) comment
 
 `create` accepts `--title`, `--description`, `--source-branch`, `--target-branch`, `--draft` for non-interactive use.
 
------
+---
 
 ## Diff format
 
@@ -265,7 +265,7 @@ CHUNK 8-18
 
 Lines 13–14 in the new file were lines 10–11 in the old file. The `--line 13` and `--line 14` values from the diff output work directly with `gfreview review comment` — no translation required.
 
------
+---
 
 ## Agent workflow
 
@@ -277,7 +277,7 @@ gfreview review submit <id>                                      # 4. submit (or
 gfreview discussions <id>                                        # 5. verify
 ```
 
------
+---
 
 ## GitLab client — API mapping
 
@@ -287,15 +287,15 @@ All requests require `PRIVATE-TOKEN: $GFREVIEW_TOKEN` header.
 
 ### PR management
 
-|Operation|Method|Endpoint                                     |
-|---------|------|---------------------------------------------|
-|list     |GET   |`/projects/:id/merge_requests`               |
-|view     |GET   |`/projects/:id/merge_requests/:iid`          |
-|create   |POST  |`/projects/:id/merge_requests`               |
-|delete   |DELETE|`/projects/:id/merge_requests/:iid`          |
-|approve  |POST  |`/projects/:id/merge_requests/:iid/approve`  |
-|unapprove|POST  |`/projects/:id/merge_requests/:iid/unapprove`|
-|merge    |PUT   |`/projects/:id/merge_requests/:iid/merge`    |
+| Operation | Method | Endpoint                                      |
+| --------- | ------ | --------------------------------------------- |
+| list      | GET    | `/projects/:id/merge_requests`                |
+| view      | GET    | `/projects/:id/merge_requests/:iid`           |
+| create    | POST   | `/projects/:id/merge_requests`                |
+| delete    | DELETE | `/projects/:id/merge_requests/:iid`           |
+| approve   | POST   | `/projects/:id/merge_requests/:iid/approve`   |
+| unapprove | POST   | `/projects/:id/merge_requests/:iid/unapprove` |
+| merge     | PUT    | `/projects/:id/merge_requests/:iid/merge`     |
 
 ### Diff and versions
 
@@ -323,14 +323,14 @@ Returns per-file diff objects with `old_path`, `new_path`, and a unified `diff` 
 
 The GitLab client maps review operations to the Draft Notes API. Drafts are server-side and visible only to the author until published.
 
-|ForgeClient method|API call|
-|------------------|--------|
-|`startReview`|`GET /versions` (cache SHAs)|
-|`addReviewComment`|`POST /draft_notes` with position object|
-|`listReviewComments`|`GET /draft_notes`|
-|`deleteReviewComment`|`DELETE /draft_notes/:id`|
-|`submitReview`|`GET /versions` (staleness check) then `POST /draft_notes/bulk_publish`|
-|`discardReview`|`DELETE /draft_notes/:id` for each draft|
+| ForgeClient method    | API call                                                                |
+| --------------------- | ----------------------------------------------------------------------- |
+| `startReview`         | `GET /versions` (cache SHAs)                                            |
+| `addReviewComment`    | `POST /draft_notes` with position object                                |
+| `listReviewComments`  | `GET /draft_notes`                                                      |
+| `deleteReviewComment` | `DELETE /draft_notes/:id`                                               |
+| `submitReview`        | `GET /versions` (staleness check) then `POST /draft_notes/bulk_publish` |
+| `discardReview`       | `DELETE /draft_notes/:id` for each draft                                |
 
 **Creating an inline draft note:**
 
@@ -394,20 +394,20 @@ POST /projects/:id/merge_requests/:iid/notes
 
 The three SHAs must always come from `/versions` — not `git log` or the PR object. Stale SHAs produce `400 Bad Request` with no useful message. The client fetches fresh versions on `startReview` and caches them in the local session. On `submitReview`, versions are re-fetched and compared — see the stale SHA handling described in the review workflow section above.
 
------
+---
 
 ## GitHub client — API mapping (future)
 
 To be implemented in v0.2.
 
-|ForgeClient method|API call|
-|------------------|--------|
-|`startReview`|`GET /pulls/:number` (cache head SHA)|
-|`addReviewComment`|Write to local session state|
-|`listReviewComments`|Read from local session state|
-|`deleteReviewComment`|Delete from local session state|
-|`submitReview`|`POST /reviews` with `comments` array and `event`|
-|`discardReview`|Clear local session state|
+| ForgeClient method    | API call                                          |
+| --------------------- | ------------------------------------------------- |
+| `startReview`         | `GET /pulls/:number` (cache head SHA)             |
+| `addReviewComment`    | Write to local session state                      |
+| `listReviewComments`  | Read from local session state                     |
+| `deleteReviewComment` | Delete from local session state                   |
+| `submitReview`        | `POST /reviews` with `comments` array and `event` |
+| `discardReview`       | Clear local session state                         |
 
 GitHub's Reviews API accepts all comments in a single `POST /reviews` call. There is no server-side incremental draft API — comments are staged locally and packed into the submit payload.
 
@@ -423,7 +423,7 @@ GitHub requires a `commit_id` (HEAD SHA) and `path` + `line` for each comment. N
 
 Key difference from GitLab: `review status` only works on the machine where the review was started, since drafts live in local state rather than server-side.
 
------
+---
 
 ## Local state
 
@@ -463,7 +463,7 @@ The CLI stores session state at `$XDG_DATA_HOME/gfreview/sessions/<forge>/<proje
 }
 ```
 
------
+---
 
 ## Implementation notes
 

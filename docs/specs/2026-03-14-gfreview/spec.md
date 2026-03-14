@@ -9,6 +9,7 @@ No ergonomic CLI exists for posting inline diff comments on merge/pull requests 
 ## Scope
 
 **In scope:**
+
 - Post inline comments on PR diff lines from a single command
 - Read and display inline discussions on a PR
 - Work as a scriptable tool an agent can call without a TUI
@@ -18,6 +19,7 @@ No ergonomic CLI exists for posting inline diff comments on merge/pull requests 
 - GitLab support in v0.2 — architecture must support it, implementation deferred
 
 **Out of scope:**
+
 - TUI or interactive review mode
 - Full repository/project management (that's `glab` / `gh`)
 - GitLab support in v0.1 — architecture must support it, implementation deferred
@@ -25,28 +27,36 @@ No ergonomic CLI exists for posting inline diff comments on merge/pull requests 
 ## User Stories
 
 **US-1: Post inline comment** (must)
+
 - As a code reviewer, I want to post a comment on a specific line of a diff, so that I can provide targeted feedback without using a web UI.
 - Given I have a PR ID, file path, and line number, when I run `gfreview review comment <id> --file <path> --line <n> --body <text>`, then the comment is staged for review.
 
 **US-2: Submit review** (must)
+
 - As a code reviewer, I want to submit all staged comments as a single review, so that participants receive one notification instead of many.
 
 **US-3: Read diff with line numbers** (must)
+
 - As a code reviewer, I want to see the diff with line numbers, so that I can identify which lines to comment on.
 
 **US-4: List discussions** (must)
+
 - As a code reviewer, I want to see all existing discussions on a PR, so that I can understand the review context.
 
 **US-5: Manage review session** (must)
+
 - As a code reviewer, I want to start, view, and discard review sessions, so that I can manage my review workflow.
 
 **US-6: Handle stale diff** (must)
+
 - As a code reviewer, I want to be warned if the PR has been updated since I started my review, so that I don't post comments on outdated code.
 
 **US-7: Refresh review** (should)
+
 - As a code reviewer, I want to refresh my review against the latest diff, so that I can continue reviewing after the PR is updated.
 
 **US-8: PR management** (should)
+
 - As a code reviewer, I want to list, view, create, approve, and merge PRs, so that I can manage the review lifecycle.
 
 ## Constraints
@@ -65,6 +75,7 @@ No ergonomic CLI exists for posting inline diff comments on merge/pull requests 
 ### What exists today
 
 This is a greenfield project. The codebase consists of:
+
 - `index.ts` — placeholder entry point
 - `package.json` — Bun project configuration
 - `tsconfig.json` — strict TypeScript configuration
@@ -121,10 +132,12 @@ No existing patterns — this is the first feature.
 ### Where business logic lives
 
 **Entity layer:**
+
 - Zod schemas with refinement for validation
 - `ReviewSession.isStale(currentVersions)` — checks if cached SHAs differ from current
 
 **Service layer:**
+
 - `ReviewService.startReview(prId)` — fetches versions, creates session
 - `ReviewService.addComment(prId, opts)` — validates, creates comment via client
 - `ReviewService.submitReview(prId)` — checks staleness, publishes drafts
@@ -135,6 +148,7 @@ No existing patterns — this is the first feature.
 ### Where IO lives
 
 **Client layer:**
+
 - `GitHubClient.getPR()` — GET `/repos/:owner/:repo/pulls/:number`
 - `GitHubClient.getDiff()` — GET `/repos/:owner/:repo/pulls/:number/files`
 - `GitHubClient.getVersions()` — extracts headSha from PR object
@@ -147,17 +161,20 @@ No existing patterns — this is the first feature.
 - `GitLabClient.listDiscussions()` — GET `/projects/:id/merge_requests/:iid/discussions`
 
 **Session layer:**
+
 - `SessionStore.read(prId)` — reads session file from disk
 - `SessionStore.write(prId, session)` — writes session file to disk
 - `SessionStore.delete(prId)` — deletes session file
 
 **Config layer:**
+
 - `Config.load()` — reads environment variables and config file
 - `Config.detectProject()` — runs `git remote get-url origin` to infer project
 
 ## CLI Commands
 
 ### PR management
+
 ```
 gfreview list [--state open|merged|closed|all] [--assignee] [--reviewer] [--label]
 gfreview view <id>
@@ -169,6 +186,7 @@ gfreview merge <id>
 ```
 
 ### Review workflow
+
 ```
 gfreview review start <id>
 gfreview review comment <id> --file <path> --line <n> --body <text> [--side new|old]
@@ -180,6 +198,7 @@ gfreview review refresh <id>
 ```
 
 ### Discussions
+
 ```
 gfreview diff <id>
 gfreview discussions <id>
@@ -189,6 +208,7 @@ gfreview note <id> --body <text>
 ```
 
 ### Shared flags
+
 ```
 --forge gitlab|github
 --project <id or path>
@@ -199,12 +219,14 @@ gfreview note <id> --body <text>
 ## Error Handling
 
 **Exit codes:**
+
 - `0` — success
 - `1` — user error (invalid arguments, missing required fields)
 - `2` — API error (authentication failed, resource not found)
 - `3` — stale review (PR updated since review start)
 
 **Default output:**
+
 - User errors: clear message only
 - API errors: status code + short message
 - Stale review: cached vs current SHA
@@ -218,6 +240,7 @@ gfreview note <id> --body <text>
 **Approach:** GitLab draft notes persist server-side with their position. If the file/line no longer exists, the API returns `400 Bad Request` on publish.
 
 During `review refresh`:
+
 1. Fetch new diff
 2. For each draft note, check if the file and line still exist
 3. If line exists → update position (DELETE old draft, POST new draft with new SHAs)
