@@ -1,4 +1,5 @@
 import { test, expect, describe } from 'bun:test';
+
 import { UserError, ApiError, StaleReviewError, EXIT_CODES } from './errors';
 
 describe('UserError', () => {
@@ -36,11 +37,7 @@ describe('ApiError', () => {
 
 describe('StaleReviewError', () => {
   test('creates error with message and SHAs', () => {
-    const error = new StaleReviewError(
-      'PR has been updated',
-      'abc123',
-      'def456'
-    );
+    const error = new StaleReviewError('PR has been updated', 'abc123', 'def456');
     expect(error.message).toBe('PR has been updated');
     expect(error.cachedSha).toBe('abc123');
     expect(error.currentSha).toBe('def456');

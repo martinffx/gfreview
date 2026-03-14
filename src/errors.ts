@@ -9,7 +9,7 @@ export class ApiError extends Error {
   constructor(
     message: string,
     public readonly statusCode: number,
-    public readonly body?: unknown
+    public readonly body?: unknown,
   ) {
     super(message);
     this.name = 'ApiError';
@@ -20,7 +20,7 @@ export class StaleReviewError extends Error {
   constructor(
     message: string,
     public readonly cachedSha: string,
-    public readonly currentSha: string
+    public readonly currentSha: string,
   ) {
     super(message);
     this.name = 'StaleReviewError';
