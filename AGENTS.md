@@ -51,7 +51,7 @@ This project follows the atelier workflow with beads for task tracking.
 1. **Start session**: `bd ready` — Find unblocked work
 2. **Claim task**: `bd update <id> --claim` — Claim and start work
 3. **Work**: Implement following TDD (write test → verify fail → implement → verify pass)
-4. **Run quality gates**: `bun run lint && bun run format:check` (after each task)
+4. **Run quality gates**: `bun run types && bun run lint && bun run format:check` (after each task)
 5. **Commit**: `git add -A && git commit -m "..."` (after each task)
 6. **Add notes**: Document progress with `bd note <id> "progress update"`
 7. **Complete task**: `bd close <id> --reason "done"`
@@ -83,7 +83,7 @@ Use `bd` when:
 **MANDATORY WORKFLOW:**
 
 1. **File issues for remaining work** - `bd create` for anything that needs follow-up
-2. **Run quality gates** (if code changed) - `bun test`, linters, builds
+2. **Run quality gates** (if code changed) - `bun run types && bun run lint && bun run format:check && bun test`
 3. **Update issue status** - `bd close` finished work, `bd update` in-progress items
 4. **PUSH TO REMOTE** - This is MANDATORY:
    ```bash
