@@ -1,0 +1,602 @@
+{
+  "feature": "gfreview-cli",
+  "spec": "docs/specs/2026-03-14-gfreview/spec.md",
+  "goal": "CLI for inline diff comments on GitHub PRs (GitLab support deferred)",
+  "phases": [
+    {
+      "id": "P1",
+      "name": "Foundation - Project Setup & Entity Layer",
+      "description": "Install dependencies, create domain models with Zod schemas, establish project structure",
+      "tasks": [
+        {
+          "id": "T1.1",
+          "name": "Install dependencies",
+          "depends_on": [],
+          "files": {
+            "create": [],
+            "modify": ["package.json"]
+          },
+          "steps": [
+            {
+              "action": "run_command",
+              "command": "bun add zod commander",
+              "description": "Install zod and commander packages"
+            },
+            {
+              "action": "run_command",
+              "command": "bun add -d @types/node",
+              "description": "Install node types for development"
+            },
+            {
+              "action": "verify",
+              "description": "Check package.json has zod and commander in dependencies"
+            }
+          ],
+          "verification": "bun pm ls | grep -E 'zod|commander'"
+        },
+        {
+          "id": "T1.2",
+          "name": "Create project structure",
+          "depends_on": ["T1.1"],
+          "files": {
+            "create": [
+              "src/entity/index.ts",
+              "src/entity/schemas.ts",
+              "src/entity/transforms.ts",
+              "src/client/index.ts",
+              "src/client/forge-client.ts",
+              "src/client/github-client.ts",
+              "src/client/gitlab-client.ts",
+              "src/session/index.ts",
+              "src/session/session-store.ts",
+              "src/service/index.ts",
+              "src/service/review-service.ts",
+              "src/service/diff-service.ts",
+              "src/service/discussion-service.ts",
+              "src/cli/index.ts",
+              "src/cli/commands.ts",
+              "src/cli/output.ts",
+              "src/config.ts",
+              "src/errors.ts"
+            ],
+            "modify": []
+          },
+          "steps": [
+            {
+              "action": "create_directory",
+              "path": "src/entity"
+            },
+            {
+              "action": "create_directory",
+              "path": "src/client"
+            },
+            {
+              "action": "create_directory",
+              "path": "src/session"
+            },
+            {
+              "action": "create_directory",
+              "path": "src/service"
+            },
+            {
+              "action": "create_directory",
+              "path": "src/cli"
+            },
+            {
+              "action": "create_file",
+              "path": "src/entity/index.ts",
+              "content": "export * from './schemas';\nexport * from './transforms';"
+            },
+            {
+              "action": "create_file",
+              "path": "src/client/index.ts",
+              "content": "export * from './forge-client';\nexport * from './github-client';\nexport * from './gitlab-client';"
+            },
+            {
+              "action": "create_file",
+              "path": "src/session/index.ts",
+              "content": "export * from './session-store';"
+            },
+            {
+              "action": "create_file",
+              "path": "src/service/index.ts",
+              "content": "export * from './review-service';\nexport * from './diff-service';\nexport * from './discussion-service';"
+            },
+            {
+              "action": "create_file",
+              "path": "src/cli/index.ts",
+              "content": "export * from './commands';\nexport * from './output';"
+            }
+          ],
+          "verification": "ls -la src/"
+        },
+        {
+          "id": "T1.3",
+          "name": "Create error types",
+          "depends_on": ["T1.2"],
+          "files": {
+            "create": ["src/errors.ts"],
+            "modify": []
+          },
+          "steps": [
+            {
+              "action": "create_file",
+              "path": "src/errors.ts",
+              "content": "export class UserError extends Error {\n  constructor(message: string) {\n    super(message);\n    this.name = 'UserError';\n  }\n}\n\nexport class ApiError extends Error {\n  constructor(\n    message: string,\n    public readonly statusCode: number,\n    public readonly body?: unknown\n  ) {\n    super(message);\n    this.name = 'ApiError';\n  }\n}\n\nexport class StaleReviewError extends Error {\n  constructor(\n    message: string,\n    public readonly cachedSha: string,\n    public readonly currentSha: string\n  ) {\n    super(message);\n    this.name = 'StaleReviewError';\n  }\n}\n\nexport const EXIT_CODES = {\n  SUCCESS: 0,\n  USER_ERROR: 1,\n  API_ERROR: 2,\n  STALE_REVIEW: 3,\n} as const;\n"
+            }
+          ],
+          "verification": "bun run src/errors.ts"
+        },
+        {
+          "id": "T1.4",
+          "name": "Create Zod schemas for domain models",
+          "depends_on": ["T1.3"],
+          "files": {
+            "create": ["src/entity/schemas.ts"],
+            "modify": []
+          },
+          "steps": [
+            {
+              "action": "create_file",
+              "path": "src/entity/schemas.ts",
+                            "content": "import { z } from 'zod';\n\n// DiffVersion - SHAs needed for diff positioning\n// GitHub: only headSha needed\n// GitLab: all three SHAs needed\nexport const DiffVersionSchema = z.object({\n  headSha: z.string(),\n  baseSha: z.string().optional(),  // GitLab-only\n  startSha: z.string().optional(),  // GitLab-only\n});\nexport type DiffVersion = z.infer<typeof DiffVersionSchema>;\n\n// PR/MR schema\nexport const PRSchema = z.object({\n  id: z.number(),\n  iid: z.number(),\n  projectId: z.string(),\n  title: z.string(),\n  state: z.enum(['opened', 'closed', 'merged', 'locked']),\n  sourceBranch: z.string(),\n  targetBranch: z.string(),\n  author: z.object({\n    id: z.number(),\n    username: z.string(),\n    name: z.string(),\n    avatarUrl: z.string().optional(),\n  }),\n  webUrl: z.string(),\n  diffVersions: DiffVersionSchema.optional(),\n});\nexport type PR = z.infer<typeof PRSchema>;\n\n// ReviewComment - a draft comment (used by GitHub for local staging)\nexport const ReviewCommentSchema = z.object({\n  id: z.string().optional(),  // client-generated ID for tracking\n  file: z.string(),\n  line: z.number().int().positive(),\n  lineEnd: z.number().int().positive().optional(),\n  side: z.enum(['new', 'old']).default('new'),\n  body: z.string().min(1),\n});\nexport type ReviewComment = z.infer<typeof ReviewCommentSchema>;\n\n// DraftNote - a server-side GitLab draft note\nexport const DraftNoteSchema = z.object({\n  id: z.number(),\n  position: z.object({\n    base_sha: z.string(),\n    head_sha: z.string(),\n    start_sha: z.string(),\n    old_path: z.string(),\n    new_path: z.string(),\n    position_type: z.enum(['text', 'image']),\n    new_line: z.number().optional(),\n    old_line: z.number().optional(),\n    line_range: z.object({\n      start: z.object({\n        type: z.enum(['new', 'old']),\n        old_line: z.number().optional(),\n        new_line: z.number().optional(),\n      }),\n      end: z.object({\n        type: z.enum(['new', 'old']),\n        old_line: z.number().optional(),\n        new_line: z.number().optional(),\n      }),\n    }).optional(),\n  }).optional(),\n  note: z.string(),\n  author: z.object({\n    id: z.number(),\n    username: z.string(),\n    name: z.string(),\n  }),\n  created_at: z.string(),\n});\nexport type DraftNote = z.infer<typeof DraftNoteSchema>;\n\n// Discussion - an existing discussion thread\nexport const DiscussionSchema = z.object({\n  id: z.string(),\n  individual_note: z.boolean(),\n  notes: z.array(z.object({\n    id: z.number(),\n    type: z.enum(['DiscussionNote', 'DiffNote', 'Note']).optional(),\n    body: z.string(),\n    author: z.object({\n      id: z.number(),\n      username: z.string(),\n      name: z.string(),\n    }),\n    created_at: z.string(),\n    resolvable: z.boolean().optional(),\n    resolved: z.boolean().optional(),\n    position: z.object({\n      old_path: z.string().optional(),\n      new_path: z.string().optional(),\n      old_line: z.number().optional(),\n      new_line: z.number().optional(),\n    }).optional(),\n  })),\n});\nexport type Discussion = z.infer<typeof DiscussionSchema>;\n\n// DiffHunk - a single hunk in a file diff\nexport const DiffHunkSchema = z.object({\n  old_start: z.number(),\n  old_lines: z.number(),\n  new_start: z.number(),\n  new_lines: z.number(),\n  content: z.string(),\n});\nexport type DiffHunk = z.infer<typeof DiffHunkSchema>;\n\n// FileDiff - diff for a single file\nexport const FileDiffSchema = z.object({\n  old_path: z.string(),\n  new_path: z.string(),\n  diff: z.string(),\n  new_file: z.boolean(),\n  deleted_file: z.boolean(),\n  renamed_file: z.boolean(),\n  hunks: z.array(DiffHunkSchema).optional(),\n});\nexport type FileDiff = z.infer<typeof FileDiffSchema>;\n\n// ReviewSession - local session state\n// GitHub: uses comments array (local staging)\n// GitLab: uses draftNoteIds (server-side drafts)\nexport const ReviewSessionSchema = z.object({\n  projectId: z.string(),\n  mrIid: z.number(),\n  startedAt: z.string(),\n  versions: DiffVersionSchema,\n  // GitHub: local comments stored in session\n  comments: z.array(ReviewCommentSchema).optional(),\n  // GitLab: server-side draft note IDs\n  draftNoteIds: z.array(z.number()).optional(),\n});\nexport type ReviewSession = z.infer<typeof ReviewSessionSchema>;\n\n// Config schema\nexport const ConfigSchema = z.object({\n  forge: z.enum(['gitlab', 'github']).default('github'),\n  token: z.string(),\n  baseUrl: z.string().optional(),\n  project: z.string().optional(),\n});\nexport type Config = z.infer<typeof ConfigSchema>;\n"
+            }
+          ],
+          "verification": "bun run src/entity/schemas.ts"
+        },
+        {
+          "id": "T1.5",
+          "name": "Create entity transforms and business logic",
+          "depends_on": ["T1.4"],
+          "files": {
+            "create": ["src/entity/transforms.ts"],
+            "modify": []
+          },
+          "steps": [
+            {
+              "action": "create_file",
+              "path": "src/entity/transforms.ts",
+              "content": "import type { DiffVersion, ReviewSession, ReviewComment, FileDiff, DiffHunk } from './schemas';\n\n/**\n * Check if the review session is stale by comparing cached SHAs with current\n * GitHub: only compares headSha\n * GitLab: compares all three SHAs\n */\nexport function isStale(session: ReviewSession, currentVersions: DiffVersion): boolean {\n  // Always compare headSha\n  if (session.versions.headSha !== currentVersions.headSha) {\n    return true;\n  }\n  \n  // GitLab: also compare baseSha and startSha if present\n  if (session.versions.baseSha && currentVersions.baseSha &&\n      session.versions.baseSha !== currentVersions.baseSha) {\n    return true;\n  }\n  \n  if (session.versions.startSha && currentVersions.startSha &&\n      session.versions.startSha !== currentVersions.startSha) {\n    return true;\n  }\n  \n  return false;\n}\n\n/**\n * Parse unified diff content into hunks with line numbers\n */\nexport function parseDiffHunks(diffContent: string): DiffHunk[] {\n  const hunks: DiffHunk[] = [];\n  const hunkRegex = /^@@ -(\\d+),(\\d+) \\+(\\d+),(\\d+) @@/gm;\n  let match;\n  \n  while ((match = hunkRegex.exec(diffContent)) !== null) {\n    hunks.push({\n      old_start: parseInt(match[1], 10),\n      old_lines: parseInt(match[2], 10),\n      new_start: parseInt(match[3], 10),\n      new_lines: parseInt(match[4], 10),\n      content: extractHunkContent(diffContent, match.index),\n    });\n  }\n  \n  return hunks;\n}\n\nfunction extractHunkContent(diff: string, startIndex: number): string {\n  const lines = diff.slice(startIndex).split('\\n');\n  const hunkLines: string[] = [];\n  \n  for (const line of lines) {\n    if (line.startsWith('@@') && hunkLines.length > 0) {\n      break;\n    }\n    hunkLines.push(line);\n  }\n  \n  return hunkLines.join('\\n');\n}\n\n/**\n * Build a line number map for a file diff\n * Returns a map of line number -> { oldLine, newLine, type }\n */\nexport function buildLineMap(fileDiff: FileDiff): Map<number, { oldLine?: number; newLine?: number; type: 'context' | 'addition' | 'deletion' }> {\n  const lineMap = new Map();\n  const hunks = fileDiff.hunks || parseDiffHunks(fileDiff.diff);\n  \n  let displayLine = 1;\n  \n  for (const hunk of hunks) {\n    let oldLine = hunk.old_start;\n    let newLine = hunk.new_start;\n    \n    const lines = hunk.content.split('\\n').slice(1); // Skip the @@ line\n    \n    for (const line of lines) {\n      if (line.startsWith('+')) {\n        lineMap.set(displayLine, { newLine, type: 'addition' });\n        newLine++;\n        displayLine++;\n      } else if (line.startsWith('-')) {\n        lineMap.set(displayLine, { oldLine, type: 'deletion' });\n        oldLine++;\n        displayLine++;\n      } else if (line.startsWith(' ')) {\n        lineMap.set(displayLine, { oldLine, newLine, type: 'context' });\n        oldLine++;\n        newLine++;\n        displayLine++;\n      }\n    }\n  }\n  \n  return lineMap;\n}\n\n/**\n * Normalize project ID to group/repo format\n */\nexport function normalizeProjectId(id: string | number): string {\n  if (typeof id === 'number') {\n    // Numeric ID - will need to be resolved via API\n    return String(id);\n  }\n  return id;\n}\n\n/**\n * Create a GitLab position object for a comment\n */\nexport function createGitLabPosition(\n  comment: ReviewComment,\n  versions: DiffVersion,\n  filePath: string\n): {\n  base_sha: string;\n  head_sha: string;\n  start_sha: string;\n  position_type: 'text';\n  new_path: string;\n  old_path: string;\n  new_line?: number;\n  old_line?: number;\n} {\n  const position: ReturnType<typeof createGitLabPosition> = {\n    base_sha: versions.baseSha,\n    head_sha: versions.headSha,\n    start_sha: versions.startSha,\n    position_type: 'text',\n    new_path: filePath,\n    old_path: filePath,\n  };\n  \n  if (comment.side === 'new') {\n    position.new_line = comment.line;\n  } else {\n    position.old_line = comment.line;\n  }\n  \n  return position;\n}\n\n/**\n * Create a GitLab line range for multi-line comments\n */\nexport function createGitLabLineRange(\n  startLine: number,\n  endLine: number,\n  side: 'new' | 'old'\n): {\n  start: { type: 'new' | 'old'; new_line?: number; old_line?: number };\n  end: { type: 'new' | 'old'; new_line?: number; old_line?: number };\n} {\n  return {\n    start: {\n      type: side,\n      [side === 'new' ? 'new_line' : 'old_line']: startLine,\n    },\n    end: {\n      type: side,\n      [side === 'new' ? 'new_line' : 'old_line']: endLine,\n    },\n  };\n}\n"
+            }
+          ],
+          "verification": "bun run src/entity/transforms.ts"
+        },
+        {
+          "id": "T1.6",
+          "name": "Create config module",
+          "depends_on": ["T1.5"],
+          "files": {
+            "create": ["src/config.ts"],
+            "modify": []
+          },
+          "steps": [
+            {
+              "action": "create_file",
+              "path": "src/config.ts",
+              "content": "import { $ } from 'bun';\nimport { ConfigSchema, type Config } from './entity/schemas';\nimport { UserError } from './errors';\n\nconst GITLAB_DEFAULT_URL = 'https://gitlab.com';\nconst GITHUB_DEFAULT_URL = 'https://api.github.com';\n\n/**\n * Load configuration from environment and optional config file\n */\nexport async function loadConfig(options?: Partial<Config>): Promise<Config> {\n  const forge = options?.forge ?? (process.env.GITLAB_TOKEN ? 'gitlab' : 'github');\n  \n  const token = options?.token ?? \n    (forge === 'gitlab' ? process.env.GITLAB_TOKEN : process.env.GITHUB_TOKEN);\n  \n  if (!token) {\n    throw new UserError(\n      `No ${forge === 'gitlab' ? 'GITLAB_TOKEN' : 'GITHUB_TOKEN'} environment variable found. ` +\n      'Set it or use --token flag.'\n    );\n  }\n  \n  const baseUrl = options?.baseUrl ?? \n    (forge === 'gitlab' \n      ? process.env.GITLAB_URL ?? GITLAB_DEFAULT_URL\n      : GITHUB_DEFAULT_URL);\n  \n  const project = options?.project ?? await detectProject(forge);\n  \n  return ConfigSchema.parse({\n    forge,\n    token,\n    baseUrl,\n    project,\n  });\n}\n\n/**\n * Detect project from git remote\n */\nexport async function detectProject(forge: 'gitlab' | 'github'): Promise<string | undefined> {\n  try {\n    const result = await $`git remote get-url origin`.quiet();\n    const remoteUrl = result.text().trim();\n    \n    return parseProjectFromRemote(remoteUrl, forge);\n  } catch {\n    return undefined;\n  }\n}\n\n/**\n * Parse project ID from git remote URL\n */\nfunction parseProjectFromRemote(url: string, forge: 'gitlab' | 'github'): string | undefined {\n  // SSH format: git@gitlab.com:group/repo.git\n  // HTTPS format: https://gitlab.com/group/repo.git\n  \n  const patterns = forge === 'gitlab'\n    ? [/gitlab\\.com[/:]([^/]+\\/[^/]+?)(?:\\.git)?$/, /gitlab\\.[^/]+[/:]([^/]+\\/[^/]+?)(?:\\.git)?$/]\n    : [/github\\.com[/:]([^/]+\\/[^/]+?)(?:\\.git)?$/, /github\\.[^/]+[/:]([^/]+\\/[^/]+?)(?:\\.git)?$/];\n  \n  for (const pattern of patterns) {\n    const match = url.match(pattern);\n    if (match) {\n      return match[1];\n    }\n  }\n  \n  return undefined;\n}\n"
+            }
+          ],
+          "verification": "bun run src/config.ts"
+        }
+      ]
+    },
+    {
+      "id": "P2",
+      "name": "Client Layer - ForgeClient Interface & GitHub Implementation",
+      "description": "Create the ForgeClient interface (forge-agnostic) and GitHubClient implementation for API communication",
+      "tasks": [
+        {
+          "id": "T2.1",
+          "name": "Create ForgeClient interface",
+          "depends_on": ["T1.6"],
+          "files": {
+            "create": ["src/client/forge-client.ts"],
+            "modify": []
+          },
+          "steps": [
+            {
+              "action": "create_file",
+              "path": "src/client/forge-client.ts",
+              "content": "import type { PR, DiffVersion, DraftNote, Discussion, FileDiff, ReviewComment } from '../entity/schemas';\n\n/**\n * ForgeClient interface - all forge-specific logic lives here\n * Zero leakage into CLI layer\n * \n * Design: The interface abstracts the two different approaches:\n * - GitHub: local staging (comments stored in session, submitted via POST /reviews)\n * - GitLab: server-side drafts (draft_notes API)\n */\nexport interface ForgeClient {\n  // Forge identification\n  readonly forge: 'github' | 'gitlab';\n  \n  // Project operations\n  getProjectId(projectPath: string): Promise<string>;\n  \n  // MR/PR operations\n  listPRs(opts: { state?: string; limit?: number }): Promise<PR[]>;\n  getPR(projectId: string, mrIid: number): Promise<PR>;\n  createPR(opts: { title: string; sourceBranch: string; targetBranch: string; description?: string; draft?: boolean }): Promise<PR>;\n  approvePR(projectId: string, mrIid: number): Promise<void>;\n  unapprovePR(projectId: string, mrIid: number): Promise<void>;\n  mergePR(projectId: string, mrIid: number): Promise<void>;\n  \n  // Diff operations\n  getDiff(projectId: string, mrIid: number): Promise<FileDiff[]>;\n  getVersions(projectId: string, mrIid: number): Promise<DiffVersion>;\n  \n  // Review operations (forge-agnostic)\n  // GitHub: stores in session, GitLab: creates server-side draft\n  addComment(projectId: string, mrIid: number, opts: CommentOptions): Promise<CommentResult>;\n  // GitHub: reads from session, GitLab: lists server-side drafts\n  listComments(projectId: string, mrIid: number): Promise<CommentResult[]>;\n  // GitHub: POST /reviews with comments, GitLab: publish draft notes\n  submitReview(projectId: string, mrIid: number, opts?: { summary?: string }): Promise<void>;\n  // GitHub: clears session, GitLab: deletes server-side drafts\n  discardReview(projectId: string, mrIid: number): Promise<void>;\n  \n  // Discussion operations\n  listDiscussions(projectId: string, mrIid: number): Promise<Discussion[]>;\n  resolveDiscussion(projectId: string, mrIid: number, discussionId: string): Promise<void>;\n  unresolveDiscussion(projectId: string, mrIid: number, discussionId: string): Promise<void>;\n  createNote(projectId: string, mrIid: number, opts: { body: string; position?: unknown }): Promise<void>;\n}\n\n/**\n * Comment options - forge-agnostic comment creation\n */\nexport interface CommentOptions {\n  body: string;\n  file: string;\n  line: number;\n  lineEnd?: number;\n  side?: 'new' | 'old';\n}\n\n/**\n * Comment result - represents a staged comment\n * GitHub: has client-generated id, GitLab: has server-assigned id\n */\nexport interface CommentResult {\n  id: string | number;\n  body: string;\n  file: string;\n  line: number;\n  lineEnd?: number;\n  side: 'new' | 'old';\n}\n\n/**\n * GitLab-specific draft note options (for internal use)\n */\nexport interface DraftNoteOptions {\n  body: string;\n  position?: {\n    base_sha: string;\n    head_sha: string;\n    start_sha: string;\n    position_type: 'text';\n    new_path: string;\n    old_path: string;\n    new_line?: number;\n    old_line?: number;\n    line_range?: {\n      start: { type: 'new' | 'old'; new_line?: number; old_line?: number };\n      end: { type: 'new' | 'old'; new_line?: number; old_line?: number };\n    };\n  };\n}\n"
+            }
+          ],
+          "verification": "bun run src/client/forge-client.ts"
+        },
+        {
+          "id": "T2.2",
+          "name": "Create GitHubClient implementation",
+          "depends_on": ["T2.1"],
+          "files": {
+            "create": ["src/client/github-client.ts"],
+            "modify": []
+          },
+          "steps": [
+            {
+              "action": "create_file",
+              "path": "src/client/github-client.ts",
+              "content": "import type { ForgeClient, CommentOptions, CommentResult } from './forge-client';\nimport type { PR, DiffVersion, Discussion, FileDiff, ReviewComment } from '../entity/schemas';\nimport { ApiError, UserError } from '../errors';\nimport { SessionStore } from '../session/session-store';\n\ninterface GitHubClientOptions {\n  baseUrl: string;\n  token: string;\n}\n\n/**\n * GitHub client implementation\n * \n * Key differences from GitLab:\n * - No server-side drafts - comments stored in local session\n * - submitReview: POST /repos/:owner/:repo/pulls/:number/reviews with comments array\n * - Only one headSha needed (not three SHAs like GitLab)\n */\nexport class GitHubClient implements ForgeClient {\n  readonly forge = 'github' as const;\n  private baseUrl: string;\n  private token: string;\n  \n  constructor(opts: GitHubClientOptions) {\n    this.baseUrl = opts.baseUrl.replace(/\\/$/, '');\n    this.token = opts.token;\n  }\n  \n  private async request<T>(\n    method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH',\n    path: string,\n    body?: unknown\n  ): Promise<T> {\n    const url = `${this.baseUrl}${path}`;\n    \n    const response = await fetch(url, {\n      method,\n      headers: {\n        'Authorization': `Bearer ${this.token}`,\n        'Accept': 'application/vnd.github+json',\n        'X-GitHub-Api-Version': '2022-11-28',\n        'Content-Type': 'application/json',\n      },\n      body: body ? JSON.stringify(body) : undefined,\n    });\n    \n    if (!response.ok) {\n      const errorBody = await response.text();\n      throw new ApiError(\n        `GitHub API error: ${response.status} ${response.statusText}`,\n        response.status,\n        errorBody\n      );\n    }\n    \n    if (response.status === 204) {\n      return undefined as T;\n    }\n    \n    return response.json();\n  }\n  \n  private parseProjectId(projectId: string): { owner: string; repo: string } {\n    const [owner, repo] = projectId.split('/');\n    if (!owner || !repo) {\n      throw new UserError(`Invalid project ID format: ${projectId}. Expected 'owner/repo'.`);\n    }\n    return { owner, repo };\n  }\n  \n  // Project operations\n  async getProjectId(projectPath: string): Promise<string> {\n    // GitHub uses owner/repo format directly\n    return projectPath;\n  }\n  \n  // PR operations\n  async listPRs(opts: { state?: string; limit?: number } = {}): Promise<PR[]> {\n    // TODO: Implement via GET /repos/:owner/:repo/pulls\n    throw new Error('Not implemented');\n  }\n  \n  async getPR(projectId: string, prNumber: number): Promise<PR> {\n    const { owner, repo } = this.parseProjectId(projectId);\n    const pr = await this.request<any>(\n      'GET',\n      `/repos/${owner}/${repo}/pulls/${prNumber}`\n    );\n    \n    return {\n      id: pr.id,\n      iid: pr.number,\n      projectId: `${owner}/${repo}`,\n      title: pr.title,\n      state: pr.state === 'open' ? 'opened' : pr.state,\n      sourceBranch: pr.head.ref,\n      targetBranch: pr.base.ref,\n      author: {\n        id: pr.user.id,\n        username: pr.user.login,\n        name: pr.user.login,\n        avatarUrl: pr.user.avatar_url,\n      },\n      webUrl: pr.html_url,\n      diffVersions: {\n        headSha: pr.head.sha,\n      },\n    };\n  }\n  \n  async createPR(opts: { title: string; sourceBranch: string; targetBranch: string; description?: string; draft?: boolean }): Promise<PR> {\n    // TODO: Implement via POST /repos/:owner/:repo/pulls\n    throw new Error('Not implemented');\n  }\n  \n  async approvePR(projectId: string, prNumber: number): Promise<void> {\n    const { owner, repo } = this.parseProjectId(projectId);\n    await this.request(\n      'POST',\n      `/repos/${owner}/${repo}/pulls/${prNumber}/reviews`,\n      { event: 'APPROVE' }\n    );\n  }\n  \n  async unapprovePR(projectId: string, prNumber: number): Promise<void> {\n    // GitHub doesn't have a direct unapprove - need to dismiss the review\n    // TODO: Implement via PUT /repos/:owner/:repo/pulls/:number/reviews/:review_id/dismissals\n    throw new Error('Not implemented');\n  }\n  \n  async mergePR(projectId: string, prNumber: number): Promise<void> {\n    const { owner, repo } = this.parseProjectId(projectId);\n    await this.request(\n      'PUT',\n      `/repos/${owner}/${repo}/pulls/${prNumber}/merge`\n    );\n  }\n  \n  // Diff operations\n  async getDiff(projectId: string, prNumber: number): Promise<FileDiff[]> {\n    const { owner, repo } = this.parseProjectId(projectId);\n    // TODO: Implement via GET /repos/:owner/:repo/pulls/:number/files\n    throw new Error('Not implemented');\n  }\n  \n  async getVersions(projectId: string, prNumber: number): Promise<DiffVersion> {\n    const pr = await this.getPR(projectId, prNumber);\n    return {\n      headSha: pr.diffVersions?.headSha ?? '',\n    };\n  }\n  \n  // Review operations (GitHub: local staging)\n  async addComment(projectId: string, prNumber: number, opts: CommentOptions): Promise<CommentResult> {\n    const session = await SessionStore.read(projectId, prNumber);\n    const comment: ReviewComment = {\n      id: crypto.randomUUID(),\n      file: opts.file,\n      line: opts.line,\n      lineEnd: opts.lineEnd,\n      side: opts.side ?? 'new',\n      body: opts.body,\n    };\n    \n    const comments = session?.comments ?? [];\n    comments.push(comment);\n    \n    await SessionStore.write(projectId, prNumber, {\n      projectId,\n      mrIid: prNumber,\n      startedAt: session?.startedAt ?? new Date().toISOString(),\n      versions: session?.versions ?? { headSha: '' },\n      comments,\n    });\n    \n    return {\n      id: comment.id!,\n      body: comment.body,\n      file: comment.file,\n      line: comment.line,\n      lineEnd: comment.lineEnd,\n      side: comment.side,\n    };\n  }\n  \n  async listComments(projectId: string, prNumber: number): Promise<CommentResult[]> {\n    const session = await SessionStore.read(projectId, prNumber);\n    return (session?.comments ?? []).map(c => ({\n      id: c.id!,\n      body: c.body,\n      file: c.file,\n      line: c.line,\n      lineEnd: c.lineEnd,\n      side: c.side,\n    }));\n  }\n  \n  async submitReview(projectId: string, prNumber: number, opts?: { summary?: string }): Promise<void> {\n    const { owner, repo } = this.parseProjectId(projectId);\n    const session = await SessionStore.read(projectId, prNumber);\n    \n    if (!session?.comments?.length) {\n      throw new UserError('No comments to submit');\n    }\n    \n    // Build GitHub review comments format\n    const comments = session.comments.map(c => ({\n      path: c.file,\n      line: c.line,\n      side: c.side === 'old' ? 'LEFT' : 'RIGHT',\n      body: c.body,\n    }));\n    \n    await this.request(\n      'POST',\n      `/repos/${owner}/${repo}/pulls/${prNumber}/reviews`,\n      {\n        event: 'COMMENT',\n        body: opts?.summary ?? '',\n        comments,\n      }\n    );\n    \n    // Clear session after successful submit\n    await SessionStore.delete(projectId, prNumber);\n  }\n  \n  async discardReview(projectId: string, prNumber: number): Promise<void> {\n    await SessionStore.delete(projectId, prNumber);\n  }\n  \n  // Discussion operations\n  async listDiscussions(projectId: string, prNumber: number): Promise<Discussion[]> {\n    // GitHub uses review comments, not discussions\n    // TODO: Implement via GET /repos/:owner/:repo/pulls/:number/comments\n    throw new Error('Not implemented');\n  }\n  \n  async resolveDiscussion(projectId: string, prNumber: number, discussionId: string): Promise<void> {\n    // GitHub doesn't have discussion resolution like GitLab\n    throw new Error('Not implemented');\n  }\n  \n  async unresolveDiscussion(projectId: string, prNumber: number, discussionId: string): Promise<void> {\n    // GitHub doesn't have discussion resolution like GitLab\n    throw new Error('Not implemented');\n  }\n  \n  async createNote(projectId: string, prNumber: number, opts: { body: string; position?: unknown }): Promise<void> {\n    const { owner, repo } = this.parseProjectId(projectId);\n    await this.request(\n      'POST',\n      `/repos/${owner}/${repo}/issues/${prNumber}/comments`,\n      { body: opts.body }\n    );\n  }\n}\n"
+            }
+          ],
+          "verification": "bun run src/client/github-client.ts"
+        },
+        {
+          "id": "T2.3",
+          "name": "Write tests for GitHubClient",
+          "depends_on": ["T2.2"],
+          "files": {
+            "create": ["src/client/github-client.test.ts"],
+            "modify": []
+          },
+          "steps": [
+            {
+              "action": "create_file",
+              "path": "src/client/github-client.test.ts",
+              "content": "import { test, expect, describe, mock, beforeEach } from 'bun:test';\nimport { GitHubClient } from './github-client';\nimport { ApiError } from '../errors';\n\ndescribe('GitHubClient', () => {\n  const mockFetch = mock();\n  const client = new GitHubClient({\n    baseUrl: 'https://api.github.com',\n    token: 'test-token',\n  });\n  \n  beforeEach(() => {\n    mockFetch.mockClear();\n    global.fetch = mockFetch;\n  });\n  \n  describe('getVersions', () => {\n    test('returns DiffVersion with headSha from PR', async () => {\n      mockFetch.mockResolvedValueOnce({\n        ok: true,\n        json: () => ({\n          id: 1,\n          number: 42,\n          title: 'Test PR',\n          state: 'open',\n          head: { ref: 'feature', sha: 'abc123' },\n          base: { ref: 'main', sha: 'def456' },\n          user: { id: 1, login: 'testuser', avatar_url: 'https://example.com/avatar.png' },\n          html_url: 'https://github.com/owner/repo/pull/42',\n        }),\n      });\n      \n      const versions = await client.getVersions('owner/repo', 42);\n      \n      expect(versions.headSha).toBe('abc123');\n      expect(versions.baseSha).toBeUndefined();\n      expect(versions.startSha).toBeUndefined();\n    });\n  });\n  \n  describe('getPR', () => {\n    test('fetches and transforms PR data', async () => {\n      mockFetch.mockResolvedValueOnce({\n        ok: true,\n        json: () => ({\n          id: 1,\n          number: 42,\n          title: 'Test PR',\n          state: 'open',\n          head: { ref: 'feature', sha: 'abc123' },\n          base: { ref: 'main', sha: 'def456' },\n          user: { id: 1, login: 'testuser', avatar_url: 'https://example.com/avatar.png' },\n          html_url: 'https://github.com/owner/repo/pull/42',\n        }),\n      });\n      \n      const pr = await client.getPR('owner/repo', 42);\n      \n      expect(pr.iid).toBe(42);\n      expect(pr.title).toBe('Test PR');\n      expect(pr.state).toBe('opened');\n      expect(pr.sourceBranch).toBe('feature');\n      expect(pr.targetBranch).toBe('main');\n    });\n  });\n  \n  describe('submitReview', () => {\n    test('POSTs review with comments array', async () => {\n      // Mock session store read\n      const mockSession = {\n        projectId: 'owner/repo',\n        mrIid: 42,\n        startedAt: '2024-01-01T00:00:00Z',\n        versions: { headSha: 'abc123' },\n        comments: [\n          { id: '1', file: 'test.ts', line: 10, side: 'new', body: 'Great code!' },\n        ],\n      };\n      \n      // This test would need SessionStore mocking\n      // For now, just verify the structure\n      expect(mockSession.comments).toHaveLength(1);\n    });\n  });\n});\n"
+            },
+            {
+              "action": "run_command",
+              "command": "bun test src/client/github-client.test.ts",
+              "description": "Run GitHubClient tests"
+            }
+          ],
+          "verification": "bun test src/client/github-client.test.ts passes"
+        },
+        {
+          "id": "T2.4",
+          "name": "Create GitLabClient implementation (deferred)",
+          "depends_on": ["T2.3"],
+          "files": {
+            "create": ["src/client/gitlab-client.ts"],
+            "modify": []
+          },
+          "steps": [
+            {
+              "action": "create_file",
+              "path": "src/client/gitlab-client.ts",
+              "content": "import type { ForgeClient, CommentOptions, CommentResult, DraftNoteOptions } from './forge-client';\nimport type { PR, DiffVersion, DraftNote, Discussion, FileDiff } from '../entity/schemas';\nimport { ApiError, UserError } from '../errors';\n\ninterface GitLabClientOptions {\n  baseUrl: string;\n  token: string;\n}\n\n/**\n * GitLab client implementation\n * \n * Key differences from GitHub:\n * - Server-side drafts via draft_notes API\n * - Three SHAs needed (head, base, start) for position\n * - publishDraftNotes: POST /projects/:id/merge_requests/:iid/draft_notes/bulk_publish\n */\nexport class GitLabClient implements ForgeClient {\n  readonly forge = 'gitlab' as const;\n  private baseUrl: string;\n  private token: string;\n  \n  constructor(opts: GitLabClientOptions) {\n    this.baseUrl = opts.baseUrl.replace(/\\/$/, '');\n    this.token = opts.token;\n  }\n  \n  private async request<T>(\n    method: 'GET' | 'POST' | 'PUT' | 'DELETE',\n    path: string,\n    body?: unknown\n  ): Promise<T> {\n    const url = `${this.baseUrl}/api/v4${path}`;\n    \n    const response = await fetch(url, {\n      method,\n      headers: {\n        'PRIVATE-TOKEN': this.token,\n        'Content-Type': 'application/json',\n      },\n      body: body ? JSON.stringify(body) : undefined,\n    });\n    \n    if (!response.ok) {\n      const errorBody = await response.text();\n      throw new ApiError(\n        `GitLab API error: ${response.status} ${response.statusText}`,\n        response.status,\n        errorBody\n      );\n    }\n    \n    return response.json();\n  }\n  \n  private encodeProjectId(projectId: string): string {\n    return encodeURIComponent(projectId);\n  }\n  \n  // Project operations\n  async getProjectId(projectPath: string): Promise<string> {\n    if (projectPath.includes('/')) {\n      return projectPath;\n    }\n    const project = await this.request<{ path_with_namespace: string }>(\n      'GET',\n      `/projects/${projectPath}`\n    );\n    return project.path_with_namespace;\n  }\n  \n  // MR/PR operations\n  async listPRs(opts: { state?: string; limit?: number } = {}): Promise<PR[]> {\n    // TODO: Implement\n    throw new Error('Not implemented');\n  }\n  \n  async getPR(projectId: string, mrIid: number): Promise<PR> {\n    // TODO: Implement\n    throw new Error('Not implemented');\n  }\n  \n  async createPR(opts: { title: string; sourceBranch: string; targetBranch: string; description?: string; draft?: boolean }): Promise<PR> {\n    // TODO: Implement\n    throw new Error('Not implemented');\n  }\n  \n  async approvePR(projectId: string, mrIid: number): Promise<void> {\n    // TODO: Implement\n    throw new Error('Not implemented');\n  }\n  \n  async unapprovePR(projectId: string, mrIid: number): Promise<void> {\n    // TODO: Implement\n    throw new Error('Not implemented');\n  }\n  \n  async mergePR(projectId: string, mrIid: number): Promise<void> {\n    // TODO: Implement\n    throw new Error('Not implemented');\n  }\n  \n  // Diff operations\n  async getDiff(projectId: string, mrIid: number): Promise<FileDiff[]> {\n    // TODO: Implement\n    throw new Error('Not implemented');\n  }\n  \n  async getVersions(projectId: string, mrIid: number): Promise<DiffVersion> {\n    const versions = await this.request<any[]>(\n      'GET',\n      `/projects/${this.encodeProjectId(projectId)}/merge_requests/${mrIid}/versions`\n    );\n    \n    if (!versions.length) {\n      throw new ApiError('No versions found for MR', 404);\n    }\n    \n    const latest = versions[0];\n    return {\n      headSha: latest.head_commit_sha,\n      baseSha: latest.base_commit_sha,\n      startSha: latest.start_commit_sha,\n    };\n  }\n  \n  // Review operations (GitLab: server-side drafts)\n  async addComment(projectId: string, mrIid: number, opts: CommentOptions): Promise<CommentResult> {\n    const versions = await this.getVersions(projectId, mrIid);\n    \n    const draftNote = await this.createDraftNoteInternal(projectId, mrIid, {\n      body: opts.body,\n      position: {\n        base_sha: versions.baseSha!,\n        head_sha: versions.headSha,\n        start_sha: versions.startSha!,\n        position_type: 'text',\n        new_path: opts.file,\n        old_path: opts.file,\n        new_line: opts.side === 'new' ? opts.line : undefined,\n        old_line: opts.side === 'old' ? opts.line : undefined,\n      },\n    });\n    \n    return {\n      id: draftNote.id,\n      body: draftNote.note,\n      file: opts.file,\n      line: opts.line,\n      side: opts.side ?? 'new',\n    };\n  }\n  \n  async listComments(projectId: string, mrIid: number): Promise<CommentResult[]> {\n    const drafts = await this.listDraftNotesInternal(projectId, mrIid);\n    return drafts.map(d => ({\n      id: d.id,\n      body: d.note,\n      file: d.position?.new_path ?? d.position?.old_path ?? '',\n      line: d.position?.new_line ?? d.position?.old_line ?? 0,\n      side: d.position?.new_line ? 'new' : 'old',\n    }));\n  }\n  \n  async submitReview(projectId: string, mrIid: number, opts?: { summary?: string }): Promise<void> {\n    await this.request(\n      'POST',\n      `/projects/${this.encodeProjectId(projectId)}/merge_requests/${mrIid}/draft_notes/bulk_publish`,\n      { summary: opts?.summary }\n    );\n  }\n  \n  async discardReview(projectId: string, mrIid: number): Promise<void> {\n    const drafts = await this.listDraftNotesInternal(projectId, mrIid);\n    for (const draft of drafts) {\n      await this.deleteDraftNoteInternal(projectId, mrIid, draft.id);\n    }\n  }\n  \n  // Internal draft note operations\n  private async createDraftNoteInternal(projectId: string, mrIid: number, opts: DraftNoteOptions): Promise<DraftNote> {\n    return this.request<DraftNote>(\n      'POST',\n      `/projects/${this.encodeProjectId(projectId)}/merge_requests/${mrIid}/draft_notes`,\n      opts\n    );\n  }\n  \n  private async listDraftNotesInternal(projectId: string, mrIid: number): Promise<DraftNote[]> {\n    return this.request<DraftNote[]>(\n      'GET',\n      `/projects/${this.encodeProjectId(projectId)}/merge_requests/${mrIid}/draft_notes`\n    );\n  }\n  \n  private async deleteDraftNoteInternal(projectId: string, mrIid: number, draftNoteId: number): Promise<void> {\n    await this.request(\n      'DELETE',\n      `/projects/${this.encodeProjectId(projectId)}/merge_requests/${mrIid}/draft_notes/${draftNoteId}`\n    );\n  }\n  \n  // Discussion operations\n  async listDiscussions(projectId: string, mrIid: number): Promise<Discussion[]> {\n    // TODO: Implement\n    throw new Error('Not implemented');\n  }\n  \n  async resolveDiscussion(projectId: string, mrIid: number, discussionId: string): Promise<void> {\n    // TODO: Implement\n    throw new Error('Not implemented');\n  }\n  \n  async unresolveDiscussion(projectId: string, mrIid: number, discussionId: string): Promise<void> {\n    // TODO: Implement\n    throw new Error('Not implemented');\n  }\n  \n  async createNote(projectId: string, mrIid: number, opts: { body: string; position?: unknown }): Promise<void> {\n    // TODO: Implement\n    throw new Error('Not implemented');\n  }\n}\n"
+            }
+          ],
+          "verification": "bun run src/client/gitlab-client.ts"
+        },
+        {
+          "id": "T2.5",
+          "name": "Write tests for GitLabClient (deferred)",
+          "depends_on": ["T2.4"],
+          "files": {
+            "create": ["src/client/gitlab-client.test.ts"],
+            "modify": []
+          },
+          "steps": [
+            {
+              "action": "create_file",
+              "path": "src/client/gitlab-client.test.ts",
+              "content": "import { test, expect, describe, mock, beforeEach } from 'bun:test';\nimport { GitLabClient } from './gitlab-client';\nimport { ApiError } from '../errors';\n\ndescribe('GitLabClient', () => {\n  const mockFetch = mock();\n  const client = new GitLabClient({\n    baseUrl: 'https://gitlab.example.com',\n    token: 'test-token',\n  });\n  \n  beforeEach(() => {\n    mockFetch.mockClear();\n    global.fetch = mockFetch;\n  });\n  \n  describe('getVersions', () => {\n    test('returns DiffVersion with all three SHAs', async () => {\n      mockFetch.mockResolvedValueOnce({\n        ok: true,\n        json: () => [{\n          head_commit_sha: 'abc123',\n          base_commit_sha: 'def456',\n          start_commit_sha: 'ghi789',\n        }],\n      });\n      \n      const versions = await client.getVersions('group/repo', 1);\n      \n      expect(versions).toEqual({\n        headSha: 'abc123',\n        baseSha: 'def456',\n        startSha: 'ghi789',\n      });\n    });\n  });\n  \n  describe('addComment', () => {\n    test('creates draft note with position', async () => {\n      // Mock getVersions\n      mockFetch.mockResolvedValueOnce({\n        ok: true,\n        json: () => [{\n          head_commit_sha: 'head',\n          base_commit_sha: 'base',\n          start_commit_sha: 'start',\n        }],\n      });\n      \n      // Mock createDraftNote\n      mockFetch.mockResolvedValueOnce({\n        ok: true,\n        json: () => ({\n          id: 42,\n          note: 'Test comment',\n          author: { id: 1, username: 'test', name: 'Test User' },\n          created_at: '2024-01-01T00:00:00Z',\n          position: {\n            base_sha: 'base',\n            head_sha: 'head',\n            start_sha: 'start',\n            old_path: 'file.ts',\n            new_path: 'file.ts',\n            position_type: 'text',\n            new_line: 10,\n          },\n        }),\n      });\n      \n      const result = await client.addComment('group/repo', 1, {\n        body: 'Test comment',\n        file: 'file.ts',\n        line: 10,\n        side: 'new',\n      });\n      \n      expect(result.id).toBe(42);\n      expect(result.body).toBe('Test comment');\n    });\n  });\n});\n"
+            },
+            {
+              "action": "run_command",
+              "command": "bun test src/client/gitlab-client.test.ts",
+              "description": "Run GitLabClient tests"
+            }
+          ],
+          "verification": "bun test src/client/gitlab-client.test.ts passes"
+        }
+      ]
+    },
+    {
+      "id": "P3",
+      "name": "Session Layer - Review Session Persistence",
+      "description": "Create session storage for tracking review state",
+      "tasks": [
+        {
+          "id": "T3.1",
+          "name": "Create SessionStore implementation",
+          "depends_on": ["T2.3"],
+          "files": {
+            "create": ["src/session/session-store.ts"],
+            "modify": []
+          },
+          "steps": [
+            {
+              "action": "create_file",
+              "path": "src/session/session-store.ts",
+              "content": "import { homedir } from 'os';\nimport { join } from 'path';\nimport { mkdir, readFile, writeFile, unlink } from 'fs/promises';\nimport type { ReviewSession } from '../entity/schemas';\n\nconst SESSION_DIR = join(homedir(), '.config', 'gfreview', 'sessions');\n\nfunction getSessionPath(projectId: string, mrIid: number): string {\n  const safeId = projectId.replace(/\\//g, '_');\n  return join(SESSION_DIR, `${safeId}!${mrIid}.json`);\n}\n\nasync function ensureSessionDir(): Promise<void> {\n  try {\n    await mkdir(SESSION_DIR, { recursive: true });\n  } catch {\n    // Directory exists\n  }\n}\n\nexport const SessionStore = {\n  async read(projectId: string, mrIid: number): Promise<ReviewSession | null> {\n    try {\n      const path = getSessionPath(projectId, mrIid);\n      const content = await readFile(path, 'utf-8');\n      return JSON.parse(content) as ReviewSession;\n    } catch {\n      return null;\n    }\n  },\n  \n  async write(projectId: string, mrIid: number, session: ReviewSession): Promise<void> {\n    await ensureSessionDir();\n    const path = getSessionPath(projectId, mrIid);\n    await writeFile(path, JSON.stringify(session, null, 2));\n  },\n  \n  async delete(projectId: string, mrIid: number): Promise<void> {\n    try {\n      const path = getSessionPath(projectId, mrIid);\n      await unlink(path);\n    } catch {\n      // File doesn't exist\n    }\n  },\n  \n  async exists(projectId: string, mrIid: number): Promise<boolean> {\n    const session = await this.read(projectId, mrIid);\n    return session !== null;\n  },\n};\n"
+            }
+          ],
+          "verification": "bun run src/session/session-store.ts"
+        },
+        {
+          "id": "T3.2",
+          "name": "Write tests for SessionStore",
+          "depends_on": ["T3.1"],
+          "files": {
+            "create": ["src/session/session-store.test.ts"],
+            "modify": []
+          },
+          "steps": [
+            {
+              "action": "create_file",
+              "path": "src/session/session-store.test.ts",
+              "content": "import { test, expect, describe, beforeEach, afterEach } from 'bun:test';\nimport { mkdir, rm } from 'fs/promises';\nimport { join } from 'path';\nimport { homedir } from 'os';\nimport { SessionStore } from './session-store';\nimport type { ReviewSession } from '../entity/schemas';\n\nconst TEST_SESSION_DIR = join(homedir(), '.config', 'gfreview', 'sessions');\n\ndescribe('SessionStore', () => {\n  const testSession: ReviewSession = {\n    projectId: 'test-owner/test-repo',\n    mrIid: 42,\n    startedAt: '2024-01-01T00:00:00Z',\n    versions: {\n      headSha: 'abc123',\n    },\n    comments: [\n      { id: '1', file: 'test.ts', line: 10, side: 'new', body: 'Great code!' },\n    ],\n  };\n  \n  beforeEach(async () => {\n    try {\n      await mkdir(TEST_SESSION_DIR, { recursive: true });\n    } catch {\n      // exists\n    }\n  });\n  \n  afterEach(async () => {\n    try {\n      await rm(TEST_SESSION_DIR, { recursive: true, force: true });\n    } catch {\n      // ignore\n    }\n  });\n  \n  test('write and read session', async () => {\n    await SessionStore.write('test-owner/test-repo', 42, testSession);\n    \n    const read = await SessionStore.read('test-owner/test-repo', 42);\n    \n    expect(read).toEqual(testSession);\n  });\n  \n  test('read returns null for non-existent session', async () => {\n    const read = await SessionStore.read('nonexistent/repo', 999);\n    expect(read).toBeNull();\n  });\n  \n  test('delete removes session', async () => {\n    await SessionStore.write('test-owner/test-repo', 42, testSession);\n    await SessionStore.delete('test-owner/test-repo', 42);\n    \n    const read = await SessionStore.read('test-owner/test-repo', 42);\n    expect(read).toBeNull();\n  });\n  \n  test('exists returns true for existing session', async () => {\n    await SessionStore.write('test-owner/test-repo', 42, testSession);\n    \n    const exists = await SessionStore.exists('test-owner/test-repo', 42);\n    expect(exists).toBe(true);\n  });\n  \n  test('exists returns false for non-existent session', async () => {\n    const exists = await SessionStore.exists('nonexistent/repo', 999);\n    expect(exists).toBe(false);\n  });\n});\n"
+            },
+            {
+              "action": "run_command",
+              "command": "bun test src/session/session-store.test.ts",
+              "description": "Run SessionStore tests"
+            }
+          ],
+          "verification": "bun test src/session/session-store.test.ts passes"
+        }
+      ]
+    },
+    {
+      "id": "P4",
+      "name": "Service Layer - Business Logic",
+      "description": "Create service layer for review orchestration, diff handling, and discussions",
+      "tasks": [
+        {
+          "id": "T4.1",
+          "name": "Create ReviewService",
+          "depends_on": ["T3.2"],
+          "files": {
+            "create": ["src/service/review-service.ts"],
+            "modify": []
+          },
+          "steps": [
+            {
+              "action": "create_file",
+              "path": "src/service/review-service.ts",
+              "content": "import type { ForgeClient, CommentOptions } from '../client/forge-client';\nimport type { ReviewSession, ReviewComment, DiffVersion, CommentResult } from '../entity/schemas';\nimport { SessionStore } from '../session/session-store';\nimport { isStale } from '../entity/transforms';\nimport { StaleReviewError, UserError } from '../errors';\n\nexport interface ReviewServiceOptions {\n  client: ForgeClient;\n  projectId: string;\n  mrIid: number;\n}\n\nexport const ReviewService = {\n  /**\n   * Start a new review session\n   */\n  async startReview(opts: ReviewServiceOptions): Promise<ReviewSession> {\n    const existing = await SessionStore.read(opts.projectId, opts.mrIid);\n    if (existing) {\n      return existing;\n    }\n    \n    const versions = await opts.client.getVersions(opts.projectId, opts.mrIid);\n    \n    const session: ReviewSession = {\n      projectId: opts.projectId,\n      mrIid: opts.mrIid,\n      startedAt: new Date().toISOString(),\n      versions,\n      // GitHub: comments array, GitLab: draftNoteIds\n      ...(opts.client.forge === 'github' ? { comments: [] } : { draftNoteIds: [] }),\n    };\n    \n    await SessionStore.write(opts.projectId, opts.mrIid, session);\n    \n    return session;\n  },\n  \n  /**\n   * Get current session status\n   */\n  async getStatus(opts: ReviewServiceOptions): Promise<{\n    session: ReviewSession | null;\n    isStale: boolean;\n    currentVersions: DiffVersion | null;\n    comments: CommentResult[];\n  }> {\n    const session = await SessionStore.read(opts.projectId, opts.mrIid);\n    \n    if (!session) {\n      return {\n        session: null,\n        isStale: false,\n        currentVersions: null,\n        comments: [],\n      };\n    }\n    \n    const currentVersions = await opts.client.getVersions(opts.projectId, opts.mrIid);\n    const stale = isStale(session, currentVersions);\n    \n    // Use forge-agnostic listComments\n    const comments = await opts.client.listComments(opts.projectId, opts.mrIid);\n    \n    return {\n      session,\n      isStale: stale,\n      currentVersions,\n      comments,\n    };\n  },ons,\n      draftNotes,\n    };\n  },\n  \n  /**\n   * Add a comment to the review\n   */\n  async addComment(\n    opts: ReviewServiceOptions,\n    comment: ReviewComment\n  ): Promise<DraftNote> {\n    const session = await SessionStore.read(opts.projectId, opts.mrIid);\n    \n    if (!session) {\n      throw new UserError(\n        'No active review session. Run `gfreview review start <id>` first.'\n      );\n    }\n    \n    // Check staleness\n    const currentVersions = await opts.client.getVersions(opts.projectId, opts.mrIid);\n    if (isStale(session, currentVersions)) {\n      throw new StaleReviewError(\n        'Review is stale. Run `gfreview review refresh <id>` to update.',\n        session.versions.headSha,\n        currentVersions.headSha\n      );\n    }\n    \n    // Create draft note\n    const position: DraftNoteOptions['position'] = createGitLabPosition(\n      comment,\n      session.versions,\n      comment.file\n    );\n    \n    // Handle multi-line comments\n    if (comment.lineEnd) {\n      position.line_range = createGitLabLineRange(\n        comment.line,\n        comment.lineEnd,\n        comment.side\n      );\n    }\n    \n    const draftNote = await opts.client.createDraftNote(opts.projectId, opts.mrIid, {\n      body: comment.body,\n      position,\n    });\n    \n    // Update session with new draft note ID\n    session.draftNoteIds.push(draftNote.id);\n    await SessionStore.write(opts.projectId, opts.mrIid, session);\n    \n    return draftNote;\n  },\n  \n  /**\n   * Submit the review\n   */\n  async submitReview(\n    opts: ReviewServiceOptions,\n    summary?: string\n  ): Promise<void> {\n    const session = await SessionStore.read(opts.projectId, opts.mrIid);\n    \n    if (!session) {\n      throw new UserError(\n        'No active review session. Run `gfreview review start <id>` first.'\n      );\n    }\n    \n    // Check staleness\n    const currentVersions = await opts.client.getVersions(opts.projectId, opts.mrIid);\n    if (isStale(session, currentVersions)) {\n      throw new StaleReviewError(\n        'Review is stale. Run `gfreview review refresh <id>` to update.',\n        session.versions.headSha,\n        currentVersions.headSha\n      );\n    }\n    \n    // Publish all draft notes\n    await opts.client.publishDraftNotes(opts.projectId, opts.mrIid, {\n      summary,\n    });\n    \n    // Clean up session\n    await SessionStore.delete(opts.projectId, opts.mrIid);\n  },\n  \n  /**\n   * Discard the review\n   */\n  async discardReview(opts: ReviewServiceOptions): Promise<void> {\n    const session = await SessionStore.read(opts.projectId, opts.mrIid);\n    \n    if (!session) {\n      throw new UserError('No active review session to discard.');\n    }\n    \n    // Delete all draft notes\n    for (const noteId of session.draftNoteIds) {\n      try {\n        await opts.client.deleteDraftNote(opts.projectId, opts.mrIid, noteId);\n      } catch {\n        // Ignore errors - draft may have been deleted\n      }\n    }\n    \n    // Delete session\n    await SessionStore.delete(opts.projectId, opts.mrIid);\n  },\n  \n  /**\n   * Refresh the review against the latest diff\n   */\n  async refreshReview(opts: ReviewServiceOptions): Promise<{\n    updated: number;\n    conflicts: Array<{ note: DraftNote; reason: string }>;\n  }> {\n    const session = await SessionStore.read(opts.projectId, opts.mrIid);\n    \n    if (!session) {\n      throw new UserError(\n        'No active review session. Run `gfreview review start <id>` first.'\n      );\n    }\n    \n    const newVersions = await opts.client.getVersions(opts.projectId, opts.mrIid);\n    const draftNotes = await opts.client.listDraftNotes(opts.projectId, opts.mrIid);\n    \n    const conflicts: Array<{ note: DraftNote; reason: string }> = [];\n    let updated = 0;\n    \n    // Get the new diff to check line existence\n    const diffs = await opts.client.getDiff(opts.projectId, opts.mrIid);\n    const fileMap = new Map(diffs.map(d => [d.new_path, d]));\n    \n    for (const note of draftNotes) {\n      if (!note.position) continue;\n      \n      const filePath = note.position.new_path;\n      const fileDiff = fileMap.get(filePath);\n      \n      if (!fileDiff) {\n        conflicts.push({\n          note,\n          reason: `File ${filePath} no longer exists in diff`,\n        });\n        continue;\n      }\n      \n      // Check if line still exists\n      const line = note.position.new_line ?? note.position.old_line;\n      if (line) {\n        // For now, we assume the line exists if the file exists\n        // A more thorough check would parse the diff and verify line numbers\n        \n        // Update the draft note with new SHAs\n        await opts.client.deleteDraftNote(opts.projectId, opts.mrIid, note.id);\n        \n        const newPosition = {\n          ...note.position,\n          base_sha: newVersions.baseSha,\n          head_sha: newVersions.headSha,\n          start_sha: newVersions.startSha,\n        };\n        \n        await opts.client.createDraftNote(opts.projectId, opts.mrIid, {\n          body: note.note,\n          position: newPosition,\n        });\n        \n        updated++;\n      }\n    }\n    \n    // Update session with new versions\n    session.versions = newVersions;\n    await SessionStore.write(opts.projectId, opts.mrIid, session);\n    \n    return { updated, conflicts };\n  },\n};\n"
+            }
+          ],
+          "verification": "bun run src/service/review-service.ts"
+        },
+        {
+          "id": "T4.2",
+          "name": "Create DiffService",
+          "depends_on": ["T4.1"],
+          "files": {
+            "create": ["src/service/diff-service.ts"],
+            "modify": []
+          },
+          "steps": [
+            {
+              "action": "create_file",
+              "path": "src/service/diff-service.ts",
+              "content": "import type { ForgeClient } from '../client/forge-client';\nimport type { FileDiff, DiffHunk } from '../entity/schemas';\nimport { parseDiffHunks, buildLineMap } from '../entity/transforms';\n\nexport interface DiffServiceOptions {\n  client: ForgeClient;\n  projectId: string;\n  mrIid: number;\n}\n\nexport interface FormattedDiff {\n  path: string;\n  oldPath: string;\n  newPath: string;\n  changeType: 'added' | 'deleted' | 'modified' | 'renamed';\n  lines: DiffLine[];\n}\n\nexport interface DiffLine {\n  displayNumber: number;\n  oldNumber?: number;\n  newNumber?: number;\n  content: string;\n  type: 'context' | 'addition' | 'deletion';\n}\n\nexport const DiffService = {\n  /**\n   * Get formatted diff with line numbers\n   */\n  async getDiff(opts: DiffServiceOptions): Promise<FormattedDiff[]> {\n    const diffs = await opts.client.getDiff(opts.projectId, opts.mrIid);\n    \n    return diffs.map(d => this.formatFileDiff(d));\n  },\n  \n  /**\n   * Format a single file diff\n   */\n  formatFileDiff(fileDiff: FileDiff): FormattedDiff {\n    const hunks = fileDiff.hunks || parseDiffHunks(fileDiff.diff);\n    const lines: DiffLine[] = [];\n    \n    let displayNumber = 1;\n    \n    for (const hunk of hunks) {\n      let oldLine = hunk.old_start;\n      let newLine = hunk.new_start;\n      \n      const hunkLines = hunk.content.split('\\n').slice(1); // Skip @@ line\n      \n      for (const line of hunkLines) {\n        if (!line) continue;\n        \n        if (line.startsWith('+')) {\n          lines.push({\n            displayNumber: displayNumber++,\n            newNumber: newLine++,\n            content: line.slice(1),\n            type: 'addition',\n          });\n        } else if (line.startsWith('-')) {\n          lines.push({\n            displayNumber: displayNumber++,\n            oldNumber: oldLine++,\n            content: line.slice(1),\n            type: 'deletion',\n          });\n        } else if (line.startsWith(' ')) {\n          lines.push({\n            displayNumber: displayNumber++,\n            oldNumber: oldLine++,\n            newNumber: newLine++,\n            content: line.slice(1),\n            type: 'context',\n          });\n        }\n      }\n    }\n    \n    let changeType: FormattedDiff['changeType'] = 'modified';\n    if (fileDiff.new_file) changeType = 'added';\n    else if (fileDiff.deleted_file) changeType = 'deleted';\n    else if (fileDiff.renamed_file) changeType = 'renamed';\n    \n    return {\n      path: fileDiff.new_path,\n      oldPath: fileDiff.old_path,\n      newPath: fileDiff.new_path,\n      changeType,\n      lines,\n    };\n  },\n  \n  /**\n   * Format diff for display\n   */\n  formatForDisplay(diff: FormattedDiff): string {\n    const lines: string[] = [];\n    \n    // Header\n    const changeTypeLabel = {\n      added: 'new file',\n      deleted: 'deleted',\n      modified: 'modified',\n      renamed: 'renamed',\n    }[diff.changeType];\n    \n    lines.push(`\\x1b[1;36m${diff.path}\\x1b[0m (${changeTypeLabel})`);\n    lines.push('─'.repeat(60));\n    \n    for (const line of diff.lines) {\n      const lineNum = String(line.displayNumber).padStart(4);\n      const oldNum = line.oldNumber ? String(line.oldNumber).padStart(4) : '    ';\n      const newNum = line.newNumber ? String(line.newNumber).padStart(4) : '    ';\n      \n      let prefix = ' ';\n      let color = '';\n      \n      if (line.type === 'addition') {\n        prefix = '+';\n        color = '\\x1b[32m';\n      } else if (line.type === 'deletion') {\n        prefix = '-';\n        color = '\\x1b[31m';\n      }\n      \n      const reset = color ? '\\x1b[0m' : '';\n      lines.push(`${lineNum} ${oldNum} ${newNum} ${color}${prefix}${line.content}${reset}`);\n    }\n    \n    lines.push('');\n    return lines.join('\\n');\n  },\n};\n"
+            }
+          ],
+          "verification": "bun run src/service/diff-service.ts"
+        },
+        {
+          "id": "T4.3",
+          "name": "Create DiscussionService",
+          "depends_on": ["T4.2"],
+          "files": {
+            "create": ["src/service/discussion-service.ts"],
+            "modify": []
+          },
+          "steps": [
+            {
+              "action": "create_file",
+              "path": "src/service/discussion-service.ts",
+              "content": "import type { ForgeClient } from '../client/forge-client';\nimport type { Discussion } from '../entity/schemas';\n\nexport interface DiscussionServiceOptions {\n  client: ForgeClient;\n  projectId: string;\n  mrIid: number;\n}\n\nexport interface FormattedDiscussion {\n  id: string;\n  isResolved: boolean;\n  isInline: boolean;\n  file?: string;\n  line?: number;\n  notes: Array<{\n    author: string;\n    body: string;\n    createdAt: string;\n  isDraft?: boolean;\n  }>;\n}\n\nexport const DiscussionService = {\n  /**\n   * List all discussions\n   */\n  async list(opts: DiscussionServiceOptions): Promise<FormattedDiscussion[]> {\n    const discussions = await opts.client.listDiscussions(opts.projectId, opts.mrIid);\n    \n    return discussions.map(d => this.formatDiscussion(d));\n  },\n  \n  /**\n   * Format a discussion for display\n   */\n  formatDiscussion(discussion: Discussion): FormattedDiscussion {\n    const firstNote = discussion.notes[0];\n    const isInline = firstNote?.position?.new_path !== undefined || \n                    firstNote?.position?.old_path !== undefined;\n    \n    return {\n      id: discussion.id,\n      isResolved: firstNote?.resolved ?? false,\n      isInline,\n      file: firstNote?.position?.new_path ?? firstNote?.position?.old_path,\n      line: firstNote?.position?.new_line ?? firstNote?.position?.old_line,\n      notes: discussion.notes.map(n => ({\n        author: n.author.username,\n        body: n.body,\n        createdAt: n.created_at,\n      })),\n    };\n  },\n  \n  /**\n   * Format discussions for display\n   */\n  formatForDisplay(discussions: FormattedDiscussion[]): string {\n    const lines: string[] = [];\n    \n    for (const d of discussions) {\n      const statusIcon = d.isResolved ? '✓' : '○';\n      const typeLabel = d.isInline ? 'inline' : 'general';\n      \n      lines.push(`\\x1b[1m${statusIcon} Discussion ${d.id.slice(0, 8)}\\x1b[0m (${typeLabel})`);\n      \n      if (d.isInline && d.file) {\n        lines.push(`  File: ${d.file}${d.line ? `:${d.line}` : ''}`);\n      }\n      \n      for (const note of d.notes) {\n        const date = new Date(note.createdAt).toLocaleDateString();\n        lines.push(`  \\x1b[36m${note.author}\\x1b[0m (${date}):`);\n        lines.push(`    ${note.body.split('\\n').join('\\n    ')}`);\n      }\n      \n      lines.push('');\n    }\n    \n    return lines.join('\\n');\n  },\n  \n  /**\n   * Resolve a discussion\n   */\n  async resolve(opts: DiscussionServiceOptions, discussionId: string): Promise<void> {\n    await opts.client.resolveDiscussion(opts.projectId, opts.mrIid, discussionId);\n  },\n  \n  /**\n   * Unresolve a discussion\n   */\n  async unresolve(opts: DiscussionServiceOptions, discussionId: string): Promise<void> {\n    await opts.client.unresolveDiscussion(opts.projectId, opts.mrIid, discussionId);\n  },\n  \n  /**\n   * Add a general note (not inline)\n   */\n  async addNote(opts: DiscussionServiceOptions, body: string): Promise<void> {\n    await opts.client.createNote(opts.projectId, opts.mrIid, { body });\n  },\n};\n"
+            }
+          ],
+          "verification": "bun run src/service/discussion-service.ts"
+        },
+        {
+          "id": "T4.4",
+          "name": "Write tests for services",
+          "depends_on": ["T4.3"],
+          "files": {
+            "create": ["src/service/review-service.test.ts", "src/service/diff-service.test.ts"],
+            "modify": []
+          },
+          "steps": [
+            {
+              "action": "create_file",
+              "path": "src/service/review-service.test.ts",
+              "content": "import { test, expect, describe, mock, beforeEach } from 'bun:test';\nimport { ReviewService } from './review-service';\nimport type { ForgeClient } from '../client/forge-client';\nimport type { ReviewSession, DiffVersion, DraftNote } from '../entity/schemas';\nimport { SessionStore } from '../session/session-store';\nimport { StaleReviewError, UserError } from '../errors';\n\n// Mock the SessionStore\nconst mockSessionStore = {\n  read: mock<() => Promise<ReviewSession | null>>(),\n  write: mock<() => Promise<void>>(),\n  delete: mock<() => Promise<void>>(),\n  exists: mock<() => Promise<boolean>>(),\n};\n\n// Mock the ForgeClient\nconst mockClient = {\n  getVersions: mock<() => Promise<DiffVersion>>(),\n  createDraftNote: mock<() => Promise<DraftNote>>(),\n  listDraftNotes: mock<() => Promise<DraftNote[]>>(),\n  deleteDraftNote: mock<() => Promise<void>>(),\n  publishDraftNotes: mock<() => Promise<void>>(),\n  getDiff: mock<() => Promise<any[]>>(),\n} as unknown as ForgeClient;\n\ndescribe('ReviewService', () => {\n  const opts = {\n    client: mockClient,\n    projectId: 'test/repo',\n    mrIid: 1,\n  };\n  \n  const testVersions: DiffVersion = {\n    headSha: 'head123',\n  };\n  \n  const testSession: ReviewSession = {\n    projectId: 'test/repo',\n    mrIid: 1,\n    startedAt: '2024-01-01T00:00:00Z',\n    versions: testVersions,\n    comments: [],\n  };\n  \n  beforeEach(() => {\n    mockSessionStore.read.mockClear();\n    mockSessionStore.write.mockClear();\n    mockSessionStore.delete.mockClear();\n    (mockClient.getVersions as any).mockClear();\n    (mockClient.createDraftNote as any).mockClear();\n    (mockClient.publishDraftNotes as any).mockClear();\n  });\n  \n  describe('startReview', () => {\n    test('creates new session when none exists', async () => {\n      mockSessionStore.read.mockResolvedValue(null);\n      (mockClient.getVersions as any).mockResolvedValue(testVersions);\n      \n      // Override SessionStore for test\n      const originalStore = { ...SessionStore };\n      Object.assign(SessionStore, mockSessionStore);\n      \n      const session = await ReviewService.startReview(opts);\n      \n      expect(session.versions).toEqual(testVersions);\n      expect(mockSessionStore.write).toHaveBeenCalled();\n      \n      Object.assign(SessionStore, originalStore);\n    });\n  });\n});\n"
+            },
+            {
+              "action": "create_file",
+              "path": "src/service/diff-service.test.ts",
+              "content": "import { test, expect, describe } from 'bun:test';\nimport { DiffService } from './diff-service';\nimport type { FileDiff } from '../entity/schemas';\n\ndescribe('DiffService', () => {\n  describe('formatFileDiff', () => {\n    test('parses simple diff with additions and deletions', () => {\n      const fileDiff: FileDiff = {\n        old_path: 'test.ts',\n        new_path: 'test.ts',\n        diff: '@@ -1,3 +1,4 @@\\n old line 1\\n-old line 2\\n+new line 2\\n+new line 3\\n old line 3',\n        new_file: false,\n        deleted_file: false,\n        renamed_file: false,\n      };\n      \n      const result = DiffService.formatFileDiff(fileDiff);\n      \n      expect(result.path).toBe('test.ts');\n      expect(result.changeType).toBe('modified');\n      expect(result.lines).toHaveLength(4);\n      \n      // Check line types\n      expect(result.lines[0].type).toBe('context');\n      expect(result.lines[1].type).toBe('deletion');\n      expect(result.lines[2].type).toBe('addition');\n      expect(result.lines[3].type).toBe('addition');\n    });\n    \n    test('marks new file as added', () => {\n      const fileDiff: FileDiff = {\n        old_path: '/dev/null',\n        new_path: 'new-file.ts',\n        diff: '@@ -0,0 +1,1 @@\\n+new content',\n        new_file: true,\n        deleted_file: false,\n        renamed_file: false,\n      };\n      \n      const result = DiffService.formatFileDiff(fileDiff);\n      \n      expect(result.changeType).toBe('added');\n    });\n    \n    test('assigns sequential display numbers', () => {\n      const fileDiff: FileDiff = {\n        old_path: 'test.ts',\n        new_path: 'test.ts',\n        diff: '@@ -1,2 +1,2 @@\\n line 1\\n line 2',\n        new_file: false,\n        deleted_file: false,\n        renamed_file: false,\n      };\n      \n      const result = DiffService.formatFileDiff(fileDiff);\n      \n      expect(result.lines[0].displayNumber).toBe(1);\n      expect(result.lines[1].displayNumber).toBe(2);\n    });\n  });\n});\n"
+            },
+            {
+              "action": "run_command",
+              "command": "bun test src/service/",
+              "description": "Run service layer tests"
+            }
+          ],
+          "verification": "bun test src/service/ passes"
+        }
+      ]
+    },
+    {
+      "id": "P5",
+      "name": "CLI Layer - Command Implementation",
+      "description": "Create CLI commands using Commander, output formatting, and main entry point",
+      "tasks": [
+        {
+          "id": "T5.1",
+          "name": "Create output formatting utilities",
+          "depends_on": ["T4.4"],
+          "files": {
+            "create": ["src/cli/output.ts"],
+            "modify": []
+          },
+          "steps": [
+            {
+              "action": "create_file",
+              "path": "src/cli/output.ts",
+              "content": "import type { PR, Discussion } from '../entity/schemas';\nimport type { FormattedDiff, FormattedDiscussion, CommentResult } from '../service';\n\nexport interface OutputOptions {\n  json: boolean;\n  verbose: boolean;\n}\n\nexport const Output = {\n  /**\n   * Output a single item\n   */\n  item<T>(data: T, formatter: (d: T) => string, opts: OutputOptions): void {\n    if (opts.json) {\n      console.log(JSON.stringify(data, null, 2));\n    } else {\n      console.log(formatter(data));\n    }\n  },\n  \n  /**\n   * Output a list of items\n   */\n  list<T>(data: T[], formatter: (d: T) => string, opts: OutputOptions): void {\n    if (opts.json) {\n      console.log(JSON.stringify(data, null, 2));\n    } else if (data.length === 0) {\n      console.log('No items found.');\n    } else {\n      for (const item of data) {\n        console.log(formatter(item));\n      }\n    }\n  },\n  \n  /**\n   * Output an error\n   */\n  error(error: Error, opts: OutputOptions): void {\n    if (opts.json) {\n      console.log(JSON.stringify({\n        error: {\n          name: error.name,\n          message: error.message,\n          ...(opts.verbose && { stack: error.stack }),\n        },\n      }, null, 2));\n    } else {\n      console.error(`\\x1b[31mError: ${error.message}\\x1b[0m`);\n      if (opts.verbose && error.stack) {\n        console.error(error.stack);\n      }\n    }\n  },\n  \n  /**\n   * Output success message\n   */\n  success(message: string): void {\n    console.log(`\\x1b[32m✓ ${message}\\x1b[0m`);\n  },\n  \n  /**\n   * Format a PR for display\n   */\n  formatPR(pr: PR): string {\n    const stateColors: Record<string, string> = {\n      opened: '\\x1b[32m', // green\n      merged: '\\x1b[35m', // magenta\n      closed: '\\x1b[31m', // red\n      locked: '\\x1b[33m', // yellow\n    };\n    const color = stateColors[pr.state] || '\\x1b[0m';\n    const reset = '\\x1b[0m';\n    \n    return `${color}${pr.state}${reset} !${pr.iid} ${pr.title} (${pr.sourceBranch} → ${pr.targetBranch})`;\n  },\n  \n  /**\n   * Format a draft note for display\n   */\n  formatDraftNote(note: DraftNote): string {\n    const file = note.position?.new_path ?? note.position?.old_path ?? 'general';\n    const line = note.position?.new_line ?? note.position?.old_line;\n    const location = line ? `${file}:${line}` : file;\n    \n    return `  ○ Draft: ${location}\\n    ${note.note.split('\\n').join('\\n    ')}`;\n  },\n  \n  /**\n   * Format a session status for display\n   */\n  formatSessionStatus(status: {\n    session: { startedAt: string; draftNoteIds: number[] } | null;\n    isStale: boolean;\n    draftNotes: DraftNote[];\n  }): string {\n    if (!status.session) {\n      return 'No active review session.';\n    }\n    \n    const lines: string[] = [];\n    const date = new Date(status.session.startedAt).toLocaleString();\n    \n    lines.push(`Review session started: ${date}`);\n    lines.push(`Draft comments: ${status.session.draftNoteIds.length}`);\n    \n    if (status.isStale) {\n      lines.push('\\x1b[33m⚠ Warning: MR has been updated since review started\\x1b[0m');\n      lines.push('Run `gfreview review refresh <id>` to update.');\n    }\n    \n    if (status.draftNotes.length > 0) {\n      lines.push('\\nDraft notes:');\n      for (const note of status.draftNotes) {\n        lines.push(this.formatDraftNote(note));\n      }\n    }\n    \n    return lines.join('\\n');\n  },\n};\n"
+            }
+          ],
+          "verification": "bun run src/cli/output.ts"
+        },
+        {
+          "id": "T5.2",
+          "name": "Create CLI commands",
+          "depends_on": ["T5.1"],
+          "files": {
+            "create": ["src/cli/commands.ts"],
+            "modify": []
+          },
+          "steps": [
+            {
+              "action": "create_file",
+              "path": "src/cli/commands.ts",
+              "content": "import { Command } from 'commander';\nimport { GitHubClient } from '../client/github-client';\nimport { GitLabClient } from '../client/gitlab-client';\nimport { ReviewService } from '../service/review-service';\nimport { DiffService } from '../service/diff-service';\nimport { DiscussionService } from '../service/discussion-service';\nimport { loadConfig } from '../config';\nimport { Output } from './output';\nimport { UserError, ApiError, StaleReviewError, EXIT_CODES } from '../errors';\nimport type { Config } from '../entity/schemas';\n\ninterface GlobalOptions {\n  forge?: 'gitlab' | 'github';\n  project?: string;\n  token?: string;\n  baseUrl?: string;\n  json: boolean;\n  verbose: boolean;\n}\n\n/**\n * Parse PR ID from string (supports both numeric and #123 format)\n */\nfunction parsePrId(id: string): number {\n  if (id.startsWith('#')) {\n    return parseInt(id.slice(1), 10);\n  }\n  return parseInt(id, 10);\n}\n\n/**\n * Create a client based on config\n */\nasync function createClient(config: Config) {\n  if (config.forge === 'github') {\n    return new GitHubClient({\n      baseUrl: config.baseUrl ?? 'https://api.github.com',\n      token: config.token,\n    });\n  } else {\n    return new GitLabClient({\n      baseUrl: config.baseUrl ?? 'https://gitlab.com',\n      token: config.token,\n    });\n  }\n}\n\n/**\n * Run a command with error handling\n */\nasync function runCommand<T>(\n  fn: () => Promise<T>,\n  opts: GlobalOptions\n): Promise<T> {\n  try {\n    return await fn();\n  } catch (error) {\n    if (error instanceof UserError) {\n      Output.error(error, opts);\n      process.exit(EXIT_CODES.USER_ERROR);\n    } else if (error instanceof StaleReviewError) {\n      Output.error(error, opts);\n      process.exit(EXIT_CODES.STALE_REVIEW);\n    } else if (error instanceof ApiError) {\n      Output.error(error, opts);\n      process.exit(EXIT_CODES.API_ERROR);\n    } else {\n      Output.error(error instanceof Error ? error : new Error(String(error)), opts);\n      process.exit(EXIT_CODES.API_ERROR);\n    }\n  }\n}\n\nexport function createProgram(): Command {\n  const program = new Command();\n  \n  program\n    .name('gfreview')\n    .description('CLI for inline diff comments on GitLab MRs')\n    .version('0.1.0')\n    .option('--forge <forge>', 'Forge to use (gitlab|github)')\n    .option('--project <project>', 'Project ID or path (group/repo)')\n    .option('--token <token>', 'API token (or set GITLAB_TOKEN env)')\n    .option('--base-url <url>', 'Base URL for self-hosted instances')\n    .option('--json', 'Output as JSON')\n    .option('--verbose', 'Show detailed errors and stack traces')\n    .passThroughOptions();\n  \n  // List MRs\n  program\n    .command('list')\n    .description('List merge requests')\n    .option('--state <state>', 'Filter by state (opened|merged|closed|all)', 'opened')\n    .option('--limit <n>', 'Maximum number to return', '100')\n    .action(async (options, cmd) => {\n      const globalOpts = cmd.optsWithGlobals() as GlobalOptions;\n      \n      await runCommand(async () => {\n        const config = await loadConfig(globalOpts);\n        const client = await createClient(config);\n        \n        const projectId = config.project;\n        if (!projectId) {\n          throw new UserError('No project specified. Use --project or run from a git repository.');\n        }\n        \n        const prs = await client.listPRs({\n          state: options.state,\n          limit: parseInt(options.limit, 10),\n        });\n        \n        Output.list(prs, Output.formatPR, globalOpts);\n      }, globalOpts);\n    });\n  \n  // View MR\n  program\n    .command('view <id>')\n    .description('View a merge request')\n    .action(async (id, options, cmd) => {\n      const globalOpts = cmd.optsWithGlobals() as GlobalOptions;\n      \n      await runCommand(async () => {\n        const config = await loadConfig(globalOpts);\n        const client = await createClient(config);\n        \n        const projectId = config.project;\n        if (!projectId) {\n          throw new UserError('No project specified.');\n        }\n        \n        const mrIid = parseMrId(id);\n        const pr = await client.getPR(projectId, mrIid);\n        \n        Output.item(pr, Output.formatPR, globalOpts);\n      }, globalOpts);\n    });\n  \n  // Diff command\n  program\n    .command('diff <id>')\n    .description('Show diff with line numbers')\n    .action(async (id, options, cmd) => {\n      const globalOpts = cmd.optsWithGlobals() as GlobalOptions;\n      \n      await runCommand(async () => {\n        const config = await loadConfig(globalOpts);\n        const client = await createClient(config);\n        \n        const projectId = config.project;\n        if (!projectId) {\n          throw new UserError('No project specified.');\n        }\n        \n        const mrIid = parseMrId(id);\n        const diffs = await DiffService.getDiff({\n          client,\n          projectId,\n          mrIid,\n        });\n        \n        if (globalOpts.json) {\n          console.log(JSON.stringify(diffs, null, 2));\n        } else {\n          for (const diff of diffs) {\n            console.log(DiffService.formatForDisplay(diff));\n          }\n        }\n      }, globalOpts);\n    });\n  \n  // Discussions command\n  program\n    .command('discussions <id>')\n    .description('List discussions on a merge request')\n    .action(async (id, options, cmd) => {\n      const globalOpts = cmd.optsWithGlobals() as GlobalOptions;\n      \n      await runCommand(async () => {\n        const config = await loadConfig(globalOpts);\n        const client = await createClient(config);\n        \n        const projectId = config.project;\n        if (!projectId) {\n          throw new UserError('No project specified.');\n        }\n        \n        const mrIid = parseMrId(id);\n        const discussions = await DiscussionService.list({\n          client,\n          projectId,\n          mrIid,\n        });\n        \n        if (globalOpts.json) {\n          console.log(JSON.stringify(discussions, null, 2));\n        } else {\n          console.log(DiscussionService.formatForDisplay(discussions));\n        }\n      }, globalOpts);\n    });\n  \n  // Review commands\n  const review = program\n    .command('review')\n    .description('Review workflow commands');\n  \n  review\n    .command('start <id>')\n    .description('Start a review session')\n    .action(async (id, options, cmd) => {\n      const globalOpts = cmd.optsWithGlobals() as GlobalOptions;\n      \n      await runCommand(async () => {\n        const config = await loadConfig(globalOpts);\n        const client = await createClient(config);\n        \n        const projectId = config.project;\n        if (!projectId) {\n          throw new UserError('No project specified.');\n        }\n        \n        const mrIid = parseMrId(id);\n        const session = await ReviewService.startReview({\n          client,\n          projectId,\n          mrIid,\n        });\n        \n        Output.success(`Review session started for !${mrIid}`);\n        \n        if (!globalOpts.json) {\n          console.log(`Session ID: ${projectId}!${mrIid}`);\n          console.log(`Started: ${new Date(session.startedAt).toLocaleString()}`);\n        }\n      }, globalOpts);\n    });\n  \n  review\n    .command('comment <id>')\n    .description('Add a comment to the review')\n    .requiredOption('--file <path>', 'File path')\n    .requiredOption('--line <n>', 'Line number', parseInt)\n    .requiredOption('--body <text>', 'Comment body')\n    .option('--line-end <n>', 'End line for multi-line comment', parseInt)\n    .option('--side <side>', 'Side (new|old)', 'new')\n    .action(async (id, options, cmd) => {\n      const globalOpts = cmd.optsWithGlobals() as GlobalOptions;\n      \n      await runCommand(async () => {\n        const config = await loadConfig(globalOpts);\n        const client = await createClient(config);\n        \n        const projectId = config.project;\n        if (!projectId) {\n          throw new UserError('No project specified.');\n        }\n        \n        const mrIid = parseMrId(id);\n        \n        const note = await ReviewService.addComment(\n          { client, projectId, mrIid },\n          {\n            file: options.file,\n            line: options.line,\n            lineEnd: options.lineEnd,\n            side: options.side,\n            body: options.body,\n          }\n        );\n        \n        Output.success(`Comment added (draft note #${note.id})`);\n      }, globalOpts);\n    });\n  \n  review\n    .command('submit <id>')\n    .description('Submit the review')\n    .option('--body <text>', 'Summary message')\n    .action(async (id, options, cmd) => {\n      const globalOpts = cmd.optsWithGlobals() as GlobalOptions;\n      \n      await runCommand(async () => {\n        const config = await loadConfig(globalOpts);\n        const client = await createClient(config);\n        \n        const projectId = config.project;\n        if (!projectId) {\n          throw new UserError('No project specified.');\n        }\n        \n        const mrIid = parseMrId(id);\n        \n        await ReviewService.submitReview(\n          { client, projectId, mrIid },\n          options.body\n        );\n        \n        Output.success('Review submitted');\n      }, globalOpts);\n    });\n  \n  review\n    .command('discard <id>')\n    .description('Discard the review session')\n    .action(async (id, options, cmd) => {\n      const globalOpts = cmd.optsWithGlobals() as GlobalOptions;\n      \n      await runCommand(async () => {\n        const config = await loadConfig(globalOpts);\n        const client = await createClient(config);\n        \n        const projectId = config.project;\n        if (!projectId) {\n          throw new UserError('No project specified.');\n        }\n        \n        const mrIid = parseMrId(id);\n        \n        await ReviewService.discardReview({ client, projectId, mrIid });\n        \n        Output.success('Review discarded');\n      }, globalOpts);\n    });\n  \n  review\n    .command('status <id>')\n    .description('Show review session status')\n    .action(async (id, options, cmd) => {\n      const globalOpts = cmd.optsWithGlobals() as GlobalOptions;\n      \n      await runCommand(async () => {\n        const config = await loadConfig(globalOpts);\n        const client = await createClient(config);\n        \n        const projectId = config.project;\n        if (!projectId) {\n          throw new UserError('No project specified.');\n        }\n        \n        const mrIid = parseMrId(id);\n        \n        const status = await ReviewService.getStatus({\n          client,\n          projectId,\n          mrIid,\n        });\n        \n        if (globalOpts.json) {\n          console.log(JSON.stringify(status, null, 2));\n        } else {\n          console.log(Output.formatSessionStatus(status));\n        }\n      }, globalOpts);\n    });\n  \n  review\n    .command('refresh <id>')\n    .description('Refresh review against latest diff')\n    .action(async (id, options, cmd) => {\n      const globalOpts = cmd.optsWithGlobals() as GlobalOptions;\n      \n      await runCommand(async () => {\n        const config = await loadConfig(globalOpts);\n        const client = await createClient(config);\n        \n        const projectId = config.project;\n        if (!projectId) {\n          throw new UserError('No project specified.');\n        }\n        \n        const mrIid = parseMrId(id);\n        \n        const result = await ReviewService.refreshReview({\n          client,\n          projectId,\n          mrIid,\n        });\n        \n        Output.success(`Review refreshed: ${result.updated} comments updated`);\n        \n        if (result.conflicts.length > 0) {\n          console.log('\\n\\x1b[33mConflicts:\\x1b[0m');\n          for (const c of result.conflicts) {\n            console.log(`  - ${c.reason}`);\n          }\n        }\n      }, globalOpts);\n    });\n  \n  // Resolve/Unresolve discussions\n  program\n    .command('resolve <id>')\n    .description('Resolve a discussion')\n    .requiredOption('--discussion-id <did>', 'Discussion ID')\n    .action(async (id, options, cmd) => {\n      const globalOpts = cmd.optsWithGlobals() as GlobalOptions;\n      \n      await runCommand(async () => {\n        const config = await loadConfig(globalOpts);\n        const client = await createClient(config);\n        \n        const projectId = config.project;\n        if (!projectId) {\n          throw new UserError('No project specified.');\n        }\n        \n        const mrIid = parseMrId(id);\n        \n        await DiscussionService.resolve(\n          { client, projectId, mrIid },\n          options.discussionId\n        );\n        \n        Output.success('Discussion resolved');\n      }, globalOpts);\n    });\n  \n  program\n    .command('unresolve <id>')\n    .description('Unresolve a discussion')\n    .requiredOption('--discussion-id <did>', 'Discussion ID')\n    .action(async (id, options, cmd) => {\n      const globalOpts = cmd.optsWithGlobals() as GlobalOptions;\n      \n      await runCommand(async () => {\n        const config = await loadConfig(globalOpts);\n        const client = await createClient(config);\n        \n        const projectId = config.project;\n        if (!projectId) {\n          throw new UserError('No project specified.');\n        }\n        \n        const mrIid = parseMrId(id);\n        \n        await DiscussionService.unresolve(\n          { client, projectId, mrIid },\n          options.discussionId\n        );\n        \n        Output.success('Discussion unresolved');\n      }, globalOpts);\n    });\n  \n  // Add general note\n  program\n    .command('note <id>')\n    .description('Add a general comment')\n    .requiredOption('--body <text>', 'Comment body')\n    .action(async (id, options, cmd) => {\n      const globalOpts = cmd.optsWithGlobals() as GlobalOptions;\n      \n      await runCommand(async () => {\n        const config = await loadConfig(globalOpts);\n        const client = await createClient(config);\n        \n        const projectId = config.project;\n        if (!projectId) {\n          throw new UserError('No project specified.');\n        }\n        \n        const mrIid = parseMrId(id);\n        \n        await DiscussionService.addNote(\n          { client, projectId, mrIid },\n          options.body\n        );\n        \n        Output.success('Note added');\n      }, globalOpts);\n    });\n  \n  // Approve/Unapprove\n  program\n    .command('approve <id>')\n    .description('Approve a merge request')\n    .action(async (id, options, cmd) => {\n      const globalOpts = cmd.optsWithGlobals() as GlobalOptions;\n      \n      await runCommand(async () => {\n        const config = await loadConfig(globalOpts);\n        const client = await createClient(config);\n        \n        const projectId = config.project;\n        if (!projectId) {\n          throw new UserError('No project specified.');\n        }\n        \n        const mrIid = parseMrId(id);\n        \n        await client.approvePR(projectId, mrIid);\n        \n        Output.success('MR approved');\n      }, globalOpts);\n    });\n  \n  program\n    .command('unapprove <id>')\n    .description('Unapprove a merge request')\n    .action(async (id, options, cmd) => {\n      const globalOpts = cmd.optsWithGlobals() as GlobalOptions;\n      \n      await runCommand(async () => {\n        const config = await loadConfig(globalOpts);\n        const client = await createClient(config);\n        \n        const projectId = config.project;\n        if (!projectId) {\n          throw new UserError('No project specified.');\n        }\n        \n        const mrIid = parseMrId(id);\n        \n        await client.unapprovePR(projectId, mrIid);\n        \n        Output.success('MR unapproved');\n      }, globalOpts);\n    });\n  \n  // Merge\n  program\n    .command('merge <id>')\n    .description('Merge a merge request')\n    .action(async (id, options, cmd) => {\n      const globalOpts = cmd.optsWithGlobals() as GlobalOptions;\n      \n      await runCommand(async () => {\n        const config = await loadConfig(globalOpts);\n        const client = await createClient(config);\n        \n        const projectId = config.project;\n        if (!projectId) {\n          throw new UserError('No project specified.');\n        }\n        \n        const mrIid = parseMrId(id);\n        \n        await client.mergePR(projectId, mrIid);\n        \n        Output.success('MR merged');\n      }, globalOpts);\n    });\n  \n  return program;\n}\n"
+            }
+          ],
+          "verification": "bun run src/cli/commands.ts"
+        },
+        {
+          "id": "T5.3",
+          "name": "Update main entry point",
+          "depends_on": ["T5.2"],
+          "files": {
+            "create": [],
+            "modify": ["index.ts"]
+          },
+          "steps": [
+            {
+              "action": "edit_file",
+              "path": "index.ts",
+              "old": "console.log(\"Hello via Bun!\");",
+              "new": "#!/usr/bin/env bun\nimport { createProgram } from './src/cli/commands';\n\nconst program = createProgram();\n\nprogram.parse();"
+            }
+          ],
+          "verification": "bun run index.ts --help"
+        },
+        {
+          "id": "T5.4",
+          "name": "Add build script to package.json",
+          "depends_on": ["T5.3"],
+          "files": {
+            "create": [],
+            "modify": ["package.json"]
+          },
+          "steps": [
+            {
+              "action": "edit_file",
+              "path": "package.json",
+              "old": "{\n  \"name\": \"gfreview\",\n  \"module\": \"index.ts\",\n  \"type\": \"module\",\n  \"private\": true,\n  \"devDependencies\": {\n    \"@types/bun\": \"latest\"\n  },\n  \"peerDependencies\": {\n    \"typescript\": \"^5\"\n  }\n}",
+              "new": "{\n  \"name\": \"gfreview\",\n  \"module\": \"index.ts\",\n  \"type\": \"module\",\n  \"private\": true,\n  \"bin\": {\n    \"gfreview\": \"./index.ts\"\n  },\n  \"scripts\": {\n    \"build\": \"bun build index.ts --compile --outfile gfreview\",\n    \"test\": \"bun test\",\n    \"lint\": \"bunx biome check .\",\n    \"format\": \"bunx biome format --write .\"\n  },\n  \"devDependencies\": {\n    \"@types/bun\": \"latest\"\n  },\n  \"peerDependencies\": {\n    \"typescript\": \"^5\"\n  },\n  \"dependencies\": {\n    \"commander\": \"^12.0.0\",\n    \"zod\": \"^3.22.0\"\n  }\n}"
+            }
+          ],
+          "verification": "bun run build --help"
+        }
+      ]
+    },
+    {
+      "id": "P6",
+      "name": "Integration & Verification",
+      "description": "End-to-end testing and build verification",
+      "tasks": [
+        {
+          "id": "T6.1",
+          "name": "Run all tests",
+          "depends_on": ["T5.4"],
+          "files": {
+            "create": [],
+            "modify": []
+          },
+          "steps": [
+            {
+              "action": "run_command",
+              "command": "bun test",
+              "description": "Run all tests"
+            }
+          ],
+          "verification": "All tests pass"
+        },
+        {
+          "id": "T6.2",
+          "name": "Build binary",
+          "depends_on": ["T6.1"],
+          "files": {
+            "create": [],
+            "modify": []
+          },
+          "steps": [
+            {
+              "action": "run_command",
+              "command": "bun run build",
+              "description": "Build the binary"
+            },
+            {
+              "action": "run_command",
+              "command": "./gfreview --help",
+              "description": "Verify binary works"
+            }
+          ],
+          "verification": "Binary runs and shows help"
+        },
+        {
+          "id": "T6.3",
+          "name": "Manual integration test",
+          "depends_on": ["T6.2"],
+          "files": {
+            "create": [],
+            "modify": []
+          },
+          "steps": [
+            {
+              "action": "manual_test",
+              "description": "Test against real GitHub instance (requires GITHUB_TOKEN)"
+            }
+          ],
+          "verification": "Manual verification against GitHub"
+        }
+      ]
+    }
+  ],
+  "task_summary": {
+    "total_tasks": 22,
+    "by_phase": {
+      "P1": 6,
+      "P2": 5,
+      "P3": 2,
+      "P4": 4,
+      "P5": 4,
+      "P6": 3
+    }
+  },
+  "estimated_effort": {
+    "P1": "2 hours",
+    "P2": "4 hours",
+    "P3": "1 hour",
+    "P4": "3 hours",
+    "P5": "4 hours",
+    "P6": "1 hour",
+    "total": "15 hours"
+  },
+  "dependencies_graph": {
+    "T1.1": [],
+    "T1.2": ["T1.1"],
+    "T1.3": ["T1.2"],
+    "T1.4": ["T1.3"],
+    "T1.5": ["T1.4"],
+    "T1.6": ["T1.5"],
+    "T2.1": ["T1.6"],
+    "T2.2": ["T2.1"],
+    "T2.3": ["T2.2"],
+    "T2.4": ["T2.3"],
+    "T2.5": ["T2.4"],
+    "T3.1": ["T2.3"],
+    "T3.2": ["T3.1"],
+    "T4.1": ["T3.2"],
+    "T4.2": ["T4.1"],
+    "T4.3": ["T4.2"],
+    "T4.4": ["T4.3"],
+    "T5.1": ["T4.4"],
+    "T5.2": ["T5.1"],
+    "T5.3": ["T5.2"],
+    "T5.4": ["T5.3"],
+    "T6.1": ["T5.4"],
+    "T6.2": ["T6.1"],
+    "T6.3": ["T6.2"]
+  }
+}
