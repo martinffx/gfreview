@@ -98,7 +98,7 @@ export function createProgram(): Command {
         state: opts.state,
         limit: opts.limit ? parseInt(opts.limit, 10) : undefined,
       });
-      Output.list(prs, Output.formatPRList, opts);
+      Output.list(prs, Output.formatPR, opts);
     }, opts);
   });
 
