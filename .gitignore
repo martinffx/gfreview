@@ -6,6 +6,9 @@ out
 dist
 *.tgz
 
+# built binary
+/gfreview
+
 # code coverage
 coverage
 *.lcov
