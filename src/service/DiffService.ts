@@ -1,5 +1,5 @@
 import type { ForgeClient } from '../client/ForgeClient';
-import type { FileDiff, DiffHunk } from '../entity/Schemas';
+import type { FileDiff } from '../entity/Schemas';
 
 import { parseDiffHunks } from '../entity/Transforms';
 

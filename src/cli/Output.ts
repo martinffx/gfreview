@@ -1,5 +1,5 @@
 import type { CommentResult } from '../client/ForgeClient';
-import type { PR, Discussion } from '../entity/Schemas';
+import type { PR } from '../entity/Schemas';
 import type { FormattedDiff } from '../service/DiffService';
 import type { FormattedDiscussion } from '../service/DiscussionService';
 

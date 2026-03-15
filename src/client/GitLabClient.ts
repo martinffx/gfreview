@@ -1,4 +1,4 @@
-import type { PR, DiffVersion, DraftNote, Discussion, FileDiff } from '../entity/Schemas';
+import type { PR, DiffVersion, Discussion, FileDiff } from '../entity/Schemas';
 import type { ForgeClient, CommentOptions, CommentResult } from './ForgeClient';
 
 import { ApiError, StaleReviewError, UserError } from '../Errors';
@@ -112,7 +112,7 @@ export class GitLabClient implements ForgeClient {
         'PRIVATE-TOKEN': this.token,
         'Content-Type': 'application/json',
       },
-      body: body ? JSON.stringify(body) : undefined,
+      ...(method !== 'GET' && body ? { body: JSON.stringify(body) } : {}),
     });
 
     if (!response.ok) {
@@ -134,10 +134,14 @@ export class GitLabClient implements ForgeClient {
     }
 
     if (response.status === 204) {
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
       return undefined as unknown as T;
     }
 
-    return response.json() as Promise<T>;
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+    return (await response.json()) as T;
   }
 
   private isStaleShaError(body: string): boolean {

@@ -1,10 +1,8 @@
 import type {
   PR,
   DiffVersion,
-  DraftNote,
   Discussion,
   FileDiff,
-  ReviewComment,
 } from '../entity/Schemas';
 
 export interface CommentOptions {
