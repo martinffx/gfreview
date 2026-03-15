@@ -20,10 +20,10 @@ gfreview review status <id>
 gfreview review discard <id>
 gfreview review refresh <id>
 
-## Discussions
+## Comments
 
 gfreview diff <id>
-gfreview discussions <id>
+gfreview comments <id>
 gfreview resolve <id> --discussion-id <id>
 gfreview unresolve <id> --discussion-id <id>
 gfreview note <id> --body <text>

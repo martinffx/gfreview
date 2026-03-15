@@ -9,7 +9,7 @@
 5. gfreview review comment 42 --file src/bar.ts --line 23 --body "This function is getting complex, consider extracting"
 6. gfreview review status 42 # Check pending comments
 7. gfreview review submit 42 --body "Overall looks good, minor suggestions"
-8. gfreview discussions 42 # Verify comments were posted
+8. gfreview comments 42 # Verify comments were posted
 
 ## Scenario 2: Address feedback on a PR
 
@@ -19,7 +19,7 @@
 4. gfreview review comment 42 --file src/utils.ts --line 8 --body "Fixed per feedback"
 5. gfreview review status 42 # Check pending comments
 6. gfreview review submit 42 # Post response comments
-7. gfreview discussions 42 # Verify
+7. gfreview comments 42 # Verify
 
 ## Scenario 3: Post a single inline comment
 
