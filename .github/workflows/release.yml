@@ -94,7 +94,6 @@ jobs:
       - name: Generate type declarations
         run: bun run build:types
 
-      - name: Configure npm auth
-        run: echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
-
       - run: bun publish --access public
+        env:
+          BUN_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
