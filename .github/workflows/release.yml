@@ -2,7 +2,7 @@ name: Release
 
 on:
   push:
-    tags: ['v*']
+    tags: ["v*"]
 
 jobs:
   build:
@@ -43,7 +43,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: dist
           pattern: gfreview-*
@@ -54,10 +54,18 @@ jobs:
           cd dist
           sha256sum * > checksums.txt
 
+      - name: Generate release notes
+        id: changelog
+        run: |
+          NOTES=$(bun x conventional-changelog-cli -p angular)
+          echo "notes<<EOF" >> $GITHUB_OUTPUT
+          echo "$NOTES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
       - uses: softprops/action-gh-release@v2
         with:
           files: dist/*
-          generate_release_notes: true
+          body: ${{ steps.changelog.outputs.notes }}
 
   publish-npm:
     needs: release
@@ -81,6 +89,7 @@ jobs:
       - name: Generate type declarations
         run: bun run build:types
 
+      - name: Configure npm auth
+        run: echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
+
       - run: bun publish --access public
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
