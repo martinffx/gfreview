@@ -7,6 +7,7 @@
     "moduleDetection": "force",
     "jsx": "react-jsx",
     "allowJs": true,
+    "types": ["bun-types", "node"],
 
     // Bundler mode
     "moduleResolution": "bundler",
@@ -24,6 +25,12 @@
     // Some stricter flags (disabled by default)
     "noUnusedLocals": false,
     "noUnusedParameters": false,
-    "noPropertyAccessFromIndexSignature": false
-  }
+    "noPropertyAccessFromIndexSignature": false,
+
+    // Declaration generation (used in release build)
+    "declaration": true,
+    "declarationDir": "./dist"
+  },
+  "include": ["index.ts", "src/**/*"],
+  "exclude": ["src/**/*.test.ts"]
 }
