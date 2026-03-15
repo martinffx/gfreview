@@ -248,6 +248,18 @@ export class GitHubClient implements ForgeClient {
     return pr.diffVersions ?? { headSha: '' };
   }
 
+  async startReview(projectId: string, mrIid: number): Promise<number | undefined> {
+    const { owner, repo } = this.parseProjectId(projectId);
+
+    const response = await this.request<{
+      id: number;
+    }>('POST', `/repos/${owner}/${repo}/pulls/${mrIid}/reviews`, {
+      event: 'PENDING',
+    });
+
+    return response.id;
+  }
+
   async addComment(projectId: string, mrIid: number, opts: CommentOptions): Promise<CommentResult> {
     const session = await SessionStore.read(projectId, mrIid);
     if (!session) {

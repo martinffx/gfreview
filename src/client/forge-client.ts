@@ -49,6 +49,7 @@ export interface ForgeClient {
   getDiff(projectId: string, mrIid: number): Promise<FileDiff[]>;
   getVersions(projectId: string, mrIid: number): Promise<DiffVersion>;
 
+  startReview(projectId: string, mrIid: number): Promise<number | undefined>;
   addComment(projectId: string, mrIid: number, opts: CommentOptions): Promise<CommentResult>;
   listComments(projectId: string, mrIid: number): Promise<CommentResult[]>;
   submitReview(projectId: string, mrIid: number, opts?: { summary?: string }): Promise<void>;

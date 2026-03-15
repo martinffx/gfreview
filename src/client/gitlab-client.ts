@@ -283,6 +283,10 @@ export class GitLabClient implements ForgeClient {
     return diffVersion;
   }
 
+  async startReview(_projectId: string, _mrIid: number): Promise<undefined> {
+    return undefined;
+  }
+
   async addComment(projectId: string, mrIid: number, opts: CommentOptions): Promise<CommentResult> {
     const versions = await this.getVersions(projectId, mrIid);
     const encodedId = this.encodeProjectId(projectId);
