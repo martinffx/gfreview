@@ -197,11 +197,11 @@ gfreview review status <id>
 gfreview review refresh <id>
 ```
 
-### Discussions
+### Comments
 
 ```
 gfreview diff <id>
-gfreview discussions <id>
+gfreview comments <id>
 gfreview resolve <id> --discussion-id <did>
 gfreview unresolve <id> --discussion-id <did>
 gfreview note <id> --body <text>

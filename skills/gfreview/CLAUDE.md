@@ -40,7 +40,7 @@ Agent workflow:
 2. gfreview review start <id> - Start review session
 3. gfreview review comment <id> --file <path> --line <n> --body <text> - Add comments
 4. gfreview review submit <id> - Submit all comments
-5. gfreview discussions <id> - Verify
+5. gfreview comments <id> - Verify
 
 ## Requirements
 

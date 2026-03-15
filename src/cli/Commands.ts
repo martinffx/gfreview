@@ -288,10 +288,10 @@ export function createProgram(): Command {
     }, opts);
   });
 
-  // discussions
-  const discussionsCmd = program.command('discussions <id>');
-  discussionsCmd.description('List PR discussions');
-  discussionsCmd.action(async (id: string) => {
+  // comments
+  const commentsCmd = program.command('comments <id>');
+  commentsCmd.description('List PR comments');
+  commentsCmd.action(async (id: string) => {
     const opts = program.opts<GlobalOptions>();
     await runCommand(async () => {
       const config = await loadConfig({
@@ -302,32 +302,8 @@ export function createProgram(): Command {
       });
       const projectId = requireProject(config);
       const client = await createClient(config);
-      const discussions = await DiscussionService.list({ client, projectId, mrIid: parsePrId(id) });
-      console.log(DiscussionService.formatForDisplay(discussions));
-    }, opts);
-  });
-
-  // note
-  const noteCmd = program.command('note <id>');
-  noteCmd.description('Add a general comment to a PR');
-  noteCmd.requiredOption('-b, --body <text>', 'Comment body (use - for stdin, @path for file)');
-  noteCmd.action(async (id: string, options: { body: string }) => {
-    const opts = program.opts<GlobalOptions>();
-    await runCommand(async () => {
-      const config = await loadConfig({
-        forge: opts.forge,
-        project: opts.project,
-        token: opts.token,
-        baseUrl: opts.baseUrl,
-      });
-      const projectId = requireProject(config);
-      const client = await createClient(config);
-      const body = await readBodyFromArg(options.body);
-      if (!body) {
-        throw new UserError('Body is required.');
-      }
-      await client.addNote(projectId, parsePrId(id), { body });
-      console.log('Comment added to PR #' + id);
+      const comments = await DiscussionService.list({ client, projectId, mrIid: parsePrId(id) });
+      console.log(DiscussionService.formatForDisplay(comments));
     }, opts);
   });
 

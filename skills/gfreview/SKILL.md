@@ -56,7 +56,7 @@ This submits all staged comments as a single review. If PR updated since start, 
 
 ### Step 6: Verify
 
-gfreview discussions <id>
+gfreview comments <id>
 
 ## Diff Format
 

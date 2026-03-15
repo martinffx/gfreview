@@ -51,14 +51,14 @@ export const DiscussionService = {
     const lines: string[] = [];
 
     if (discussions.length === 0) {
-      return 'No discussions found.';
+      return 'No comments found.';
     }
 
     for (const d of discussions) {
       const statusIcon = d.isResolved ? '✓' : '○';
       const typeLabel = d.isInline ? 'inline' : 'general';
 
-      lines.push(`\x1b[1m${statusIcon} Discussion ${d.id.slice(0, 8)}\x1b[0m (${typeLabel})`);
+      lines.push(`\x1b[1m${statusIcon} Comment ${d.id.slice(0, 8)}\x1b[0m (${typeLabel})`);
 
       if (d.isInline && d.file) {
         lines.push(`  File: ${d.file}${d.line ? `:${d.line}` : ''}`);
