@@ -20,7 +20,7 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "types": "tsgo --noEmit",
-    "lint": "oxlint ./src/",
+    "lint": "oxlint src/**/*.ts index.ts",
     "lint:fix": "oxlint --fix",
     "format": "oxfmt",
     "format:check": "oxfmt --check",

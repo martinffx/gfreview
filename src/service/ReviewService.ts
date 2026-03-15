@@ -5,18 +5,18 @@ import { isStale } from '../entity/Transforms';
 import { StaleReviewError, UserError } from '../Errors';
 import { SessionStore } from '../session/SessionStore';
 
-export interface ReviewServiceOptions {
+export type ReviewServiceOptions = {
   client: ForgeClient;
   projectId: string;
   mrIid: number;
-}
+};
 
-export interface ReviewStatus {
+export type ReviewStatus = {
   session: ReviewSession | null;
   isStale: boolean;
   currentVersions: DiffVersion | null;
   comments: CommentResult[];
-}
+};
 
 export const ReviewService = {
   async startReview(opts: ReviewServiceOptions): Promise<ReviewSession> {

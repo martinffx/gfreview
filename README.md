@@ -1,8 +1,32 @@
-# gfreview
+# Git Forge Review
 
-CLI for posting inline diff comments on merge/pull requests from the terminal.
+CLI for managing code reviews on git forges
 
 ## Installation
+
+### Quick Install (curl | bash)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/martinffx/gfreview/main/install.sh | bash
+```
+
+#### Options
+
+```bash
+# Install to custom location (default: /usr/local/bin)
+curl -fsSL https://raw.githubusercontent.com/martinffx/gfreview/main/install.sh | BIN_DIR=~/.local/bin bash
+
+# Install specific version
+curl -fsSL https://raw.githubusercontent.com/martinffx/gfreview/main/install.sh | VERSION=v0.1.0 bash
+```
+
+### npm
+
+```bash
+npm install -g gfreview
+```
+
+### From Source
 
 ```bash
 bun install
