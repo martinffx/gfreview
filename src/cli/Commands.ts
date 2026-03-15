@@ -312,7 +312,7 @@ export function createProgram(): Command {
   noteCmd.description('Add a general comment to a PR');
   noteCmd.requiredOption('-b, --body <text>', 'Comment body (use - for stdin, @path for file)');
   noteCmd.action(async (id: string, options: { body: string }) => {
-    const opts = program.opts() as GlobalOptions;
+    const opts = program.opts<GlobalOptions>();
     await runCommand(async () => {
       const config = await loadConfig({
         forge: opts.forge,
@@ -378,7 +378,7 @@ export function createProgram(): Command {
   createCmd.option('-d, --description <text>', 'PR description');
   createCmd.option('--draft', 'Create as draft PR');
   createCmd.action(async (options) => {
-    const opts = program.opts() as GlobalOptions;
+    const opts = program.opts<GlobalOptions>();
     await runCommand(async () => {
       const config = await loadConfig({
         forge: opts.forge,
@@ -404,7 +404,7 @@ export function createProgram(): Command {
   resolveCmd.description('Resolve a discussion');
   resolveCmd.requiredOption('-d, --discussion-id <id>', 'Discussion ID');
   resolveCmd.action(async (id: string, options: { discussionId: string }) => {
-    const opts = program.opts() as GlobalOptions;
+    const opts = program.opts<GlobalOptions>();
     await runCommand(async () => {
       const config = await loadConfig({
         forge: opts.forge,
