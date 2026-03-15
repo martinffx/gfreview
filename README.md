@@ -48,11 +48,11 @@ gfreview review status <id>
 gfreview review discard <id>
 ```
 
-### Discussions
+### Comments
 
 ```
 gfreview diff <id>
-gfreview discussions <id>
+gfreview comments <id>
 gfreview resolve <id> --discussion-id <id>
 gfreview note <id> --body <text>
 ```
@@ -74,7 +74,7 @@ gfreview diff <id> # Read annotated diff
 gfreview review start <id> # Open session, cache SHAs
 gfreview review comment ... # Stage comments
 gfreview review submit <id> # Submit (or warn if stale)
-gfreview discussions <id> # Verify
+gfreview comments <id> # Verify
 
 ## Development
 
