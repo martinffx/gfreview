@@ -11,10 +11,10 @@ import type { ForgeClient, CommentOptions, CommentResult } from './ForgeClient';
 import { ApiError, UserError } from '../Errors';
 import { SessionStore } from '../session/SessionStore';
 
-interface GitHubClientOptions {
+type GitHubClientOptions = {
   baseUrl: string;
   token: string;
-}
+};
 
 export class GitHubClient implements ForgeClient {
   readonly forge = 'github' as const;

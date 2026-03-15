@@ -3,10 +3,10 @@ import type { PR } from '../entity/Schemas';
 import type { FormattedDiff } from '../service/DiffService';
 import type { FormattedDiscussion } from '../service/DiscussionService';
 
-export interface OutputOptions {
+export type OutputOptions = {
   json: boolean;
   verbose: boolean;
-}
+};
 
 export const Output = {
   item<T>(data: T, formatter: (d: T) => string, opts: OutputOptions): void {

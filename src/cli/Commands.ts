@@ -10,14 +10,14 @@ import { DiscussionService } from '../service/DiscussionService';
 import { ReviewService } from '../service/ReviewService';
 import { Output } from './Output';
 
-interface GlobalOptions {
+type GlobalOptions = {
   forge?: 'gitlab' | 'github';
   project?: string;
   token?: string;
   baseUrl?: string;
   json: boolean;
   verbose: boolean;
-}
+};
 
 function parsePrId(id: string): number {
   if (id.startsWith('#')) {

@@ -3,20 +3,20 @@ import type { ForgeClient, CommentOptions, CommentResult } from './ForgeClient';
 
 import { ApiError, StaleReviewError, UserError } from '../Errors';
 
-interface GitLabClientOptions {
+type GitLabClientOptions = {
   baseUrl: string;
   token: string;
-}
+};
 
-interface GitLabVersion {
+type GitLabVersion = {
   id: number;
   head_commit_sha: string;
   base_commit_sha: string;
   start_commit_sha: string;
   created_at: string;
-}
+};
 
-interface GitLabDraftNote {
+type GitLabDraftNote = {
   id: number;
   note: string;
   author: { id: number; username: string; name: string };
@@ -37,9 +37,9 @@ interface GitLabDraftNote {
   };
   resolvable?: boolean;
   resolved?: boolean;
-}
+};
 
-interface GitLabDiscussion {
+type GitLabDiscussion = {
   id: string;
   notes: Array<{
     id: number;
@@ -59,9 +59,9 @@ interface GitLabDiscussion {
     resolvable?: boolean;
     resolved?: boolean;
   }>;
-}
+};
 
-interface GitLabMR {
+type GitLabMR = {
   id: number;
   iid: number;
   project_id: number;
@@ -76,9 +76,9 @@ interface GitLabMR {
     base_sha: string;
     start_sha: string;
   };
-}
+};
 
-interface GitLabFileDiff {
+type GitLabFileDiff = {
   old_path: string;
   new_path: string;
   diff: string;
@@ -86,7 +86,7 @@ interface GitLabFileDiff {
   deleted_file: boolean;
   renamed_file: boolean;
   patch?: string;
-}
+};
 
 export class GitLabClient implements ForgeClient {
   readonly forge = 'gitlab' as const;

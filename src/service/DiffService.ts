@@ -3,27 +3,27 @@ import type { FileDiff } from '../entity/Schemas';
 
 import { parseDiffHunks } from '../entity/Transforms';
 
-export interface DiffServiceOptions {
+export type DiffServiceOptions = {
   client: ForgeClient;
   projectId: string;
   mrIid: number;
-}
+};
 
-export interface FormattedDiff {
+export type FormattedDiff = {
   path: string;
   oldPath: string;
   newPath: string;
   changeType: 'added' | 'deleted' | 'modified' | 'renamed';
   lines: DiffLine[];
-}
+};
 
-export interface DiffLine {
+export type DiffLine = {
   displayNumber: number;
   oldNumber?: number;
   newNumber?: number;
   content: string;
   type: 'context' | 'addition' | 'deletion';
-}
+};
 
 export const DiffService = {
   async getDiff(opts: DiffServiceOptions): Promise<FormattedDiff[]> {
