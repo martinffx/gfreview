@@ -18,9 +18,6 @@ curl -fsSL https://raw.githubusercontent.com/martinffx/gfreview/main/install.sh 
 
 # Install specific version
 curl -fsSL https://raw.githubusercontent.com/martinffx/gfreview/main/install.sh | VERSION=v0.1.0 bash
-
-# Install from a fork
-curl -fsSL https://raw.githubusercontent.com/your-fork/gfreview/main/install.sh | GITHUB_REPO=your-fork/gfreview bash
 ```
 
 ### npm
