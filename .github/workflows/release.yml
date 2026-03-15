@@ -43,6 +43,10 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v6
+
+      - uses: oven-sh/setup-bun@v2
+
       - uses: actions/download-artifact@v8
         with:
           path: dist
@@ -57,7 +61,8 @@ jobs:
       - name: Generate release notes
         id: changelog
         run: |
-          NOTES=$(bun x conventional-changelog-cli -p angular)
+          bun x conventional-changelog-cli -p angular > changelog.tmp
+          NOTES=$(cat changelog.tmp)
           echo "notes<<EOF" >> $GITHUB_OUTPUT
           echo "$NOTES" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
