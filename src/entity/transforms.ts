@@ -1,4 +1,4 @@
-import type { DiffVersion, FileDiff, DiffHunk, ReviewComment } from './schemas';
+import type { DiffVersion, FileDiff, DiffHunk, ReviewComment, ReviewSession } from './schemas';
 
 export function isStale(session: ReviewSession, currentVersions: DiffVersion): boolean {
   const sessionHead = session.versions.headSha;
@@ -153,5 +153,3 @@ export function createGitLabLineRange(
     },
   };
 }
-
-import type { ReviewSession } from './schemas';

@@ -7,7 +7,6 @@ export interface DiffServiceOptions {
   client: ForgeClient;
   projectId: string;
   mrIid: number;
-  mrid?: number;
 }
 
 export interface FormattedDiff {
