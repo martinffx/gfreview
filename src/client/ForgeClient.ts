@@ -1,9 +1,4 @@
-import type {
-  PR,
-  DiffVersion,
-  Discussion,
-  FileDiff,
-} from '../entity/Schemas';
+import type { PR, DiffVersion, Discussion, FileDiff } from '../entity/Schemas';
 
 export interface CommentOptions {
   file: string;

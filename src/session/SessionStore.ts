@@ -7,12 +7,7 @@ import type { ReviewSession } from '../entity/Schemas';
 const SESSION_DIR = join(homedir(), '.config', 'gfreview', 'sessions');
 
 function isReviewSession(obj: unknown): obj is ReviewSession {
-  return (
-    typeof obj === 'object' &&
-    obj !== null &&
-    'projectId' in obj &&
-    'mrIid' in obj
-  );
+  return typeof obj === 'object' && obj !== null && 'projectId' in obj && 'mrIid' in obj;
 }
 
 function getSessionPath(projectId: string, mrIid: number): string {
