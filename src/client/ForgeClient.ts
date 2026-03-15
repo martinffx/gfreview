@@ -58,4 +58,6 @@ export interface ForgeClient {
   listDiscussions(projectId: string, mrIid: number): Promise<Discussion[]>;
   resolveDiscussion(projectId: string, mrIid: number, discussionId: string): Promise<void>;
   unresolveDiscussion(projectId: string, mrIid: number, discussionId: string): Promise<void>;
+
+  addNote(projectId: string, mrIid: number, opts: { body: string }): Promise<void>;
 }

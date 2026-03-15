@@ -357,4 +357,11 @@ export class GitHubClient implements ForgeClient {
   ): Promise<void> {
     throw new UserError('GitHub does not support resolving comments via API. Use the web UI.');
   }
+
+  async addNote(projectId: string, mrIid: number, opts: { body: string }): Promise<void> {
+    const { owner, repo } = this.parseProjectId(projectId);
+    await this.request('POST', `/repos/${owner}/${repo}/issues/${mrIid}/comments`, {
+      body: opts.body,
+    });
+  }
 }
