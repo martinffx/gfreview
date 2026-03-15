@@ -10,14 +10,14 @@ import { DiscussionService } from '../service/DiscussionService';
 import { ReviewService } from '../service/ReviewService';
 import { Output } from './Output';
 
-interface GlobalOptions {
+type GlobalOptions = {
   forge?: 'gitlab' | 'github';
   project?: string;
   token?: string;
   baseUrl?: string;
   json: boolean;
   verbose: boolean;
-}
+};
 
 function parsePrId(id: string): number {
   if (id.startsWith('#')) {
@@ -84,7 +84,7 @@ export function createProgram(): Command {
   listCmd.description('List PRs').option('--state <state>', 'Filter by state (open, closed, all)');
   listCmd.option('--limit <n>', 'Max results', '100');
   listCmd.action(async () => {
-    const opts = program.opts() as GlobalOptions & { state?: string; limit?: string };
+    const opts = program.opts<GlobalOptions & { state?: string; limit?: string }>();
     await runCommand(async () => {
       const config = await loadConfig({
         forge: opts.forge,
@@ -98,7 +98,7 @@ export function createProgram(): Command {
         state: opts.state,
         limit: opts.limit ? parseInt(opts.limit, 10) : undefined,
       });
-      Output.list(prs, Output.formatPR, opts);
+      Output.list(prs, (pr) => Output.formatPR(pr), opts);
     }, opts);
   });
 
@@ -106,7 +106,7 @@ export function createProgram(): Command {
   const viewCmd = program.command('view <id>');
   viewCmd.description('View PR details');
   viewCmd.action(async (id: string) => {
-    const opts = program.opts() as GlobalOptions;
+    const opts = program.opts<GlobalOptions>();
     await runCommand(async () => {
       const config = await loadConfig({
         forge: opts.forge,
@@ -117,7 +117,7 @@ export function createProgram(): Command {
       const projectId = requireProject(config);
       const client = await createClient(config);
       const pr = await client.getPR(projectId, parsePrId(id));
-      Output.item(pr, Output.formatPR, opts);
+      Output.item(pr, (p) => Output.formatPR(p), opts);
     }, opts);
   });
 
@@ -128,7 +128,7 @@ export function createProgram(): Command {
   const startCmd = reviewCmd.command('start <id>');
   startCmd.description('Start a review session');
   startCmd.action(async (id: string) => {
-    const opts = program.opts() as GlobalOptions;
+    const opts = program.opts<GlobalOptions>();
     await runCommand(async () => {
       const config = await loadConfig({
         forge: opts.forge,
@@ -152,7 +152,7 @@ export function createProgram(): Command {
   commentCmd.option('--side <side>', 'Side (new or old)', 'new');
   commentCmd.action(
     async (id: string, options: { file: string; line: string; body?: string; side?: string }) => {
-      const opts = program.opts() as GlobalOptions;
+      const opts = program.opts<GlobalOptions>();
       await runCommand(async () => {
         const config = await loadConfig({
           forge: opts.forge,
@@ -162,13 +162,14 @@ export function createProgram(): Command {
         });
         const projectId = requireProject(config);
         const client = await createClient(config);
+        const side = options.side === 'old' ? 'old' : 'new';
         await ReviewService.addComment(
           { client, projectId, mrIid: parsePrId(id) },
           {
             file: options.file,
             line: parseInt(options.line, 10),
             body: options.body ?? '',
-            side: (options.side ?? 'new') as 'new' | 'old',
+            side,
           },
         );
         console.log('Comment added');
@@ -180,7 +181,7 @@ export function createProgram(): Command {
   const submitCmd = reviewCmd.command('submit <id>');
   submitCmd.description('Submit review');
   submitCmd.action(async (id: string) => {
-    const opts = program.opts() as GlobalOptions;
+    const opts = program.opts<GlobalOptions>();
     await runCommand(async () => {
       const config = await loadConfig({
         forge: opts.forge,
@@ -199,7 +200,7 @@ export function createProgram(): Command {
   const discardCmd = reviewCmd.command('discard <id>');
   discardCmd.description('Discard review session');
   discardCmd.action(async (id: string) => {
-    const opts = program.opts() as GlobalOptions;
+    const opts = program.opts<GlobalOptions>();
     await runCommand(async () => {
       const config = await loadConfig({
         forge: opts.forge,
@@ -218,7 +219,7 @@ export function createProgram(): Command {
   const statusCmd = reviewCmd.command('status <id>');
   statusCmd.description('Show review status');
   statusCmd.action(async (id: string) => {
-    const opts = program.opts() as GlobalOptions;
+    const opts = program.opts<GlobalOptions>();
     await runCommand(async () => {
       const config = await loadConfig({
         forge: opts.forge,
@@ -249,7 +250,7 @@ export function createProgram(): Command {
   const refreshCmd = reviewCmd.command('refresh <id>');
   refreshCmd.description('Refresh review to get latest diff');
   refreshCmd.action(async (id: string) => {
-    const opts = program.opts() as GlobalOptions;
+    const opts = program.opts<GlobalOptions>();
     await runCommand(async () => {
       const config = await loadConfig({
         forge: opts.forge,
@@ -268,7 +269,7 @@ export function createProgram(): Command {
   const diffCmd = program.command('diff <id>');
   diffCmd.description('Show PR diff with line numbers');
   diffCmd.action(async (id: string) => {
-    const opts = program.opts() as GlobalOptions;
+    const opts = program.opts<GlobalOptions>();
     await runCommand(async () => {
       const config = await loadConfig({
         forge: opts.forge,
@@ -287,7 +288,7 @@ export function createProgram(): Command {
   const discussionsCmd = program.command('discussions <id>');
   discussionsCmd.description('List PR discussions');
   discussionsCmd.action(async (id: string) => {
-    const opts = program.opts() as GlobalOptions;
+    const opts = program.opts<GlobalOptions>();
     await runCommand(async () => {
       const config = await loadConfig({
         forge: opts.forge,
@@ -306,7 +307,7 @@ export function createProgram(): Command {
   const approveCmd = program.command('approve <id>');
   approveCmd.description('Approve PR');
   approveCmd.action(async (id: string) => {
-    const opts = program.opts() as GlobalOptions;
+    const opts = program.opts<GlobalOptions>();
     await runCommand(async () => {
       const config = await loadConfig({
         forge: opts.forge,
@@ -325,7 +326,7 @@ export function createProgram(): Command {
   const mergeCmd = program.command('merge <id>');
   mergeCmd.description('Merge PR');
   mergeCmd.action(async (id: string) => {
-    const opts = program.opts() as GlobalOptions;
+    const opts = program.opts<GlobalOptions>();
     await runCommand(async () => {
       const config = await loadConfig({
         forge: opts.forge,

@@ -1,4 +1,4 @@
-import { $ } from 'bun';
+import { execSync } from 'node:child_process';
 
 import type { Config } from './entity/Schemas';
 
@@ -37,8 +37,7 @@ export async function loadConfig(options?: Partial<Config>): Promise<Config> {
 
 export async function detectProject(forge: 'gitlab' | 'github'): Promise<string | undefined> {
   try {
-    const result = await $`git remote get-url origin`.quiet();
-    const remoteUrl = result.text().trim();
+    const remoteUrl = execSync('git remote get-url origin', { encoding: 'utf8' }).trim();
 
     return parseProjectFromRemote(remoteUrl, forge);
   } catch {

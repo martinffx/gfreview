@@ -58,11 +58,11 @@ function extractHunkContent(diff: string, startIndex: number): string {
   return hunkLines.join('\n');
 }
 
-export interface LineMapping {
+export type LineMapping = {
   oldLine: number | undefined;
   newLine: number | undefined;
   type: 'context' | 'addition' | 'deletion';
-}
+};
 
 export function buildLineMap(fileDiff: FileDiff): Map<number, LineMapping> {
   const map = new Map<number, LineMapping>();
@@ -94,7 +94,7 @@ export function buildLineMap(fileDiff: FileDiff): Map<number, LineMapping> {
   return map;
 }
 
-export interface GitLabPosition {
+export type GitLabPosition = {
   base_sha: string;
   head_sha: string;
   start_sha: string;
@@ -103,7 +103,7 @@ export interface GitLabPosition {
   position_type: 'text';
   new_line?: number;
   old_line?: number;
-}
+};
 
 export function createGitLabPosition(
   versions: DiffVersion,
@@ -121,7 +121,7 @@ export function createGitLabPosition(
   };
 }
 
-export interface GitLabLineRange {
+export type GitLabLineRange = {
   start: {
     type: 'new' | 'old';
     old_line?: number;
@@ -132,7 +132,7 @@ export interface GitLabLineRange {
     old_line?: number;
     new_line?: number;
   };
-}
+};
 
 export function createGitLabLineRange(
   comment: ReviewComment,

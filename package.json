@@ -1,19 +1,33 @@
 {
   "name": "gfreview",
-  "private": true,
-  "bin": {
-    "gfreview": "./index.ts"
+  "version": "0.1.0",
+  "description": "CLI for posting inline diff comments on merge/pull requests",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/martinffx/gfreview.git"
   },
+  "bin": {
+    "gfreview": "./dist/gfreview.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "type": "module",
-  "module": "index.ts",
+  "main": "dist/gfreview.js",
+  "types": "dist/index.d.ts",
   "scripts": {
     "types": "tsgo --noEmit",
-    "lint": "oxlint ./src/",
+    "lint": "oxlint src/**/*.ts index.ts",
     "lint:fix": "oxlint --fix",
     "format": "oxfmt",
     "format:check": "oxfmt --check",
     "test": "bun test",
-    "build": "bun build index.ts --compile --outfile dist/gfreview"
+    "build": "bun build index.ts --compile --outfile dist/gfreview",
+    "build:node": "bun build index.ts --outfile dist/gfreview.js --target=node",
+    "build:types": "tsgo --emitDeclarationOnly --declarationDir dist --noEmit false"
   },
   "dependencies": {
     "commander": "^14.0.3",
@@ -21,6 +35,7 @@
   },
   "devDependencies": {
     "@types/bun": "latest",
+    "@types/node": "^25.5.0",
     "@typescript/native-preview": "^7.0.0-dev.20260314.1",
     "oxfmt": "^0.40.0",
     "oxlint": "^1.55.0",

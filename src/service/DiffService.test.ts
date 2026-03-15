@@ -2,7 +2,7 @@ import { test, expect, describe } from 'bun:test';
 
 import type { FileDiff } from '../entity/Schemas';
 
-import { DiffService, type FormattedDiff } from './DiffService';
+import { DiffService } from './DiffService';
 
 describe('DiffService', () => {
   describe('formatFileDiff', () => {

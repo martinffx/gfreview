@@ -2,7 +2,6 @@ import type {
   PR,
   DiffVersion,
   Discussion,
-  DiscussionNote,
   FileDiff,
   ReviewComment,
   ReviewSession,
@@ -12,10 +11,10 @@ import type { ForgeClient, CommentOptions, CommentResult } from './ForgeClient';
 import { ApiError, UserError } from '../Errors';
 import { SessionStore } from '../session/SessionStore';
 
-interface GitHubClientOptions {
+type GitHubClientOptions = {
   baseUrl: string;
   token: string;
-}
+};
 
 export class GitHubClient implements ForgeClient {
   readonly forge = 'github' as const;
@@ -42,7 +41,7 @@ export class GitHubClient implements ForgeClient {
         'X-GitHub-Api-Version': '2022-11-28',
         'Content-Type': 'application/json',
       },
-      body: body ? JSON.stringify(body) : undefined,
+      ...(method !== 'GET' && body ? { body: JSON.stringify(body) } : {}),
     });
 
     if (!response.ok) {
@@ -55,11 +54,20 @@ export class GitHubClient implements ForgeClient {
     }
 
     if (response.status === 204) {
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
       return undefined as T;
     }
 
-    const data = await response.json();
-    return data as T;
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+    return (await response.json()) as T;
+  }
+
+  private transformState(state: string): 'opened' | 'closed' | 'merged' | 'locked' {
+    if (state === 'open') return 'opened';
+    if (state === 'closed' || state === 'merged' || state === 'locked') return state;
+    return 'closed';
   }
 
   private parseProjectId(projectId: string): { owner: string; repo: string } {
@@ -91,14 +99,14 @@ export class GitHubClient implements ForgeClient {
         user: { id: number; login: string; avatar_url?: string };
         html_url: string;
       }>
-    >(`GET`, `/repos/${owner}/${repo}/pulls?${params}`);
+    >(`GET`, `/repos/${owner}/${repo}/pulls?${params.toString()}`);
 
     return data.map((pr) => ({
       id: pr.id,
       iid: pr.number,
       projectId: `${owner}/${repo}`,
       title: pr.title,
-      state: pr.state === 'open' ? 'opened' : (pr.state as 'closed' | 'merged' | 'locked'),
+      state: this.transformState(pr.state),
       sourceBranch: pr.head.ref,
       targetBranch: pr.base.ref,
       author: {
@@ -133,7 +141,7 @@ export class GitHubClient implements ForgeClient {
       iid: pr.number,
       projectId,
       title: pr.title,
-      state: pr.state === 'open' ? 'opened' : (pr.state as 'closed' | 'merged' | 'locked'),
+      state: this.transformState(pr.state),
       sourceBranch: pr.head.ref,
       targetBranch: pr.base.ref,
       author: {

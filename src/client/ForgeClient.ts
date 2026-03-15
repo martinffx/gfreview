@@ -1,21 +1,14 @@
-import type {
-  PR,
-  DiffVersion,
-  DraftNote,
-  Discussion,
-  FileDiff,
-  ReviewComment,
-} from '../entity/Schemas';
+import type { PR, DiffVersion, Discussion, FileDiff } from '../entity/Schemas';
 
-export interface CommentOptions {
+export type CommentOptions = {
   file: string;
   line: number;
   lineEnd?: number;
   side?: 'new' | 'old';
   body: string;
-}
+};
 
-export interface CommentResult {
+export type CommentResult = {
   id: string | number;
   file: string;
   line: number;
@@ -23,7 +16,7 @@ export interface CommentResult {
   side: 'new' | 'old';
   body: string;
   createdAt?: string;
-}
+};
 
 export interface ForgeClient {
   readonly forge: 'github' | 'gitlab';

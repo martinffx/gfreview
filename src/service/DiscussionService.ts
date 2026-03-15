@@ -1,13 +1,13 @@
 import type { ForgeClient } from '../client/ForgeClient';
 import type { Discussion } from '../entity/Schemas';
 
-export interface DiscussionServiceOptions {
+export type DiscussionServiceOptions = {
   client: ForgeClient;
   projectId: string;
   mrIid: number;
-}
+};
 
-export interface FormattedDiscussion {
+export type FormattedDiscussion = {
   id: string;
   isResolved: boolean;
   isInline: boolean;
@@ -19,7 +19,7 @@ export interface FormattedDiscussion {
     createdAt: string;
     isDraft?: boolean;
   }>;
-}
+};
 
 export const DiscussionService = {
   async list(opts: DiscussionServiceOptions): Promise<FormattedDiscussion[]> {
