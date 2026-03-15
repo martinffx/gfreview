@@ -287,10 +287,10 @@ export function createProgram(): Command {
     }, opts);
   });
 
-  // discussions
-  const discussionsCmd = program.command('discussions <id>');
-  discussionsCmd.description('List PR discussions');
-  discussionsCmd.action(async (id: string) => {
+  // comments
+  const commentsCmd = program.command('comments <id>');
+  commentsCmd.description('List PR comments');
+  commentsCmd.action(async (id: string) => {
     const opts = program.opts() as GlobalOptions;
     await runCommand(async () => {
       const config = await loadConfig({
@@ -301,8 +301,8 @@ export function createProgram(): Command {
       });
       const projectId = requireProject(config);
       const client = await createClient(config);
-      const discussions = await DiscussionService.list({ client, projectId, mrIid: parsePrId(id) });
-      console.log(DiscussionService.formatForDisplay(discussions));
+      const comments = await DiscussionService.list({ client, projectId, mrIid: parsePrId(id) });
+      console.log(DiscussionService.formatForDisplay(comments));
     }, opts);
   });
 
