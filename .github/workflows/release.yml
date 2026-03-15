@@ -94,6 +94,4 @@ jobs:
       - name: Generate type declarations
         run: bun run build:types
 
-      - run: bun publish --access public
-        env:
-          BUN_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - run: bun publish --access public --token ${{ secrets.NPM_TOKEN }}
