@@ -1,7 +1,7 @@
-import type { PR, DiffVersion, DraftNote, Discussion, FileDiff } from '../entity/schemas';
-import type { ForgeClient, CommentOptions, CommentResult } from './forge-client';
+import type { PR, DiffVersion, DraftNote, Discussion, FileDiff } from '../entity/Schemas';
+import type { ForgeClient, CommentOptions, CommentResult } from './ForgeClient';
 
-import { ApiError, StaleReviewError, UserError } from '../errors';
+import { ApiError, StaleReviewError, UserError } from '../Errors';
 
 interface GitLabClientOptions {
   baseUrl: string;

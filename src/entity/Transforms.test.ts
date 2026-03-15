@@ -1,6 +1,6 @@
 import { test, expect, describe } from 'bun:test';
 
-import type { DiffVersion, ReviewSession, FileDiff, ReviewComment } from './schemas';
+import type { DiffVersion, ReviewSession, FileDiff, ReviewComment } from './Schemas';
 
 import {
   isStale,
@@ -8,7 +8,7 @@ import {
   buildLineMap,
   createGitLabPosition,
   createGitLabLineRange,
-} from './transforms';
+} from './Transforms';
 
 describe('isStale', () => {
   const baseSession: ReviewSession = {

@@ -1,7 +1,7 @@
-import type { CommentResult } from '../client/forge-client';
-import type { PR, Discussion } from '../entity/schemas';
-import type { FormattedDiff } from '../service/diff-service';
-import type { FormattedDiscussion } from '../service/discussion-service';
+import type { CommentResult } from '../client/ForgeClient';
+import type { PR, Discussion } from '../entity/Schemas';
+import type { FormattedDiff } from '../service/DiffService';
+import type { FormattedDiscussion } from '../service/DiscussionService';
 
 export interface OutputOptions {
   json: boolean;

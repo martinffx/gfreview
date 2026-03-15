@@ -2,7 +2,7 @@ import { mkdir, readFile, writeFile, unlink } from 'fs/promises';
 import { homedir } from 'os';
 import { join } from 'path';
 
-import type { ReviewSession } from '../entity/schemas';
+import type { ReviewSession } from '../entity/Schemas';
 
 const SESSION_DIR = join(homedir(), '.config', 'gfreview', 'sessions');
 

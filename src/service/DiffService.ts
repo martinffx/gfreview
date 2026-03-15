@@ -1,7 +1,7 @@
-import type { ForgeClient } from '../client/forge-client';
-import type { FileDiff, DiffHunk } from '../entity/schemas';
+import type { ForgeClient } from '../client/ForgeClient';
+import type { FileDiff, DiffHunk } from '../entity/Schemas';
 
-import { parseDiffHunks } from '../entity/transforms';
+import { parseDiffHunks } from '../entity/Transforms';
 
 export interface DiffServiceOptions {
   client: ForgeClient;

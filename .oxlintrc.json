@@ -17,7 +17,7 @@
       "error",
       {
         "cases": {
-          "kebabCase": true,
+          "kebabCase": false,
           "camelCase": false,
           "snakeCase": false,
           "pascalCase": true

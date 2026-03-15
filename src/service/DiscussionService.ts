@@ -1,5 +1,5 @@
-import type { ForgeClient } from '../client/forge-client';
-import type { Discussion } from '../entity/schemas';
+import type { ForgeClient } from '../client/ForgeClient';
+import type { Discussion } from '../entity/Schemas';
 
 export interface DiscussionServiceOptions {
   client: ForgeClient;

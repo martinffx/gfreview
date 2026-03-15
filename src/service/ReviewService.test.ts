@@ -1,7 +1,7 @@
 import { test, expect, describe, mock } from 'bun:test';
 
-import type { ForgeClient } from '../client/forge-client';
-import type { DiffVersion } from '../entity/schemas';
+import type { ForgeClient } from '../client/ForgeClient';
+import type { DiffVersion } from '../entity/Schemas';
 
 const mockGetVersions = mock<() => Promise<DiffVersion>>();
 const mockDiscardReview = mock<() => Promise<void>>();

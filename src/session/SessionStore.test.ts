@@ -3,9 +3,9 @@ import { mkdir, rm } from 'fs/promises';
 import { homedir } from 'os';
 import { join } from 'path';
 
-import type { ReviewSession } from '../entity/schemas';
+import type { ReviewSession } from '../entity/Schemas';
 
-import { SessionStore } from './session-store';
+import { SessionStore } from './SessionStore';
 
 const TEST_SESSION_DIR = join(homedir(), '.config', 'gfreview', 'sessions');
 

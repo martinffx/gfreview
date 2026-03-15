@@ -1,14 +1,14 @@
 import { Command } from 'commander';
 
-import type { Config } from '../entity/schemas';
+import type { Config } from '../entity/Schemas';
 
-import { GitHubClient } from '../client/github-client';
-import { loadConfig } from '../config';
-import { UserError, ApiError, StaleReviewError, EXIT_CODES } from '../errors';
-import { DiffService } from '../service/diff-service';
-import { DiscussionService } from '../service/discussion-service';
-import { ReviewService } from '../service/review-service';
-import { Output } from './output';
+import { GitHubClient } from '../client/GitHubClient';
+import { loadConfig } from '../Config';
+import { UserError, ApiError, StaleReviewError, EXIT_CODES } from '../Errors';
+import { DiffService } from '../service/DiffService';
+import { DiscussionService } from '../service/DiscussionService';
+import { ReviewService } from '../service/ReviewService';
+import { Output } from './Output';
 
 interface GlobalOptions {
   forge?: 'gitlab' | 'github';

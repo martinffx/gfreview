@@ -5,7 +5,7 @@ import type {
   Discussion,
   FileDiff,
   ReviewComment,
-} from '../entity/schemas';
+} from '../entity/Schemas';
 
 export interface CommentOptions {
   file: string;

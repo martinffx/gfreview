@@ -1,9 +1,9 @@
 import { $ } from 'bun';
 
-import type { Config } from './entity/schemas';
+import type { Config } from './entity/Schemas';
 
-import { ConfigSchema } from './entity/schemas';
-import { UserError } from './errors';
+import { ConfigSchema } from './entity/Schemas';
+import { UserError } from './Errors';
 
 const GITLAB_DEFAULT_URL = 'https://gitlab.com';
 const GITHUB_DEFAULT_URL = 'https://api.github.com';

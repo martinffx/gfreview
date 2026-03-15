@@ -6,11 +6,11 @@ import type {
   FileDiff,
   ReviewComment,
   ReviewSession,
-} from '../entity/schemas';
-import type { ForgeClient, CommentOptions, CommentResult } from './forge-client';
+} from '../entity/Schemas';
+import type { ForgeClient, CommentOptions, CommentResult } from './ForgeClient';
 
-import { ApiError, UserError } from '../errors';
-import { SessionStore } from '../session/session-store';
+import { ApiError, UserError } from '../Errors';
+import { SessionStore } from '../session/SessionStore';
 
 interface GitHubClientOptions {
   baseUrl: string;

@@ -1,9 +1,9 @@
-import type { ForgeClient, CommentOptions, CommentResult } from '../client/forge-client';
-import type { ReviewSession, DiffVersion } from '../entity/schemas';
+import type { ForgeClient, CommentOptions, CommentResult } from '../client/ForgeClient';
+import type { ReviewSession, DiffVersion } from '../entity/Schemas';
 
-import { isStale } from '../entity/transforms';
-import { StaleReviewError, UserError } from '../errors';
-import { SessionStore } from '../session/session-store';
+import { isStale } from '../entity/Transforms';
+import { StaleReviewError, UserError } from '../Errors';
+import { SessionStore } from '../session/SessionStore';
 
 export interface ReviewServiceOptions {
   client: ForgeClient;

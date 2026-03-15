@@ -1,4 +1,4 @@
-import type { DiffVersion, FileDiff, DiffHunk, ReviewComment, ReviewSession } from './schemas';
+import type { DiffVersion, FileDiff, DiffHunk, ReviewComment, ReviewSession } from './Schemas';
 
 export function isStale(session: ReviewSession, currentVersions: DiffVersion): boolean {
   const sessionHead = session.versions.headSha;

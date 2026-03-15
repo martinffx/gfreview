@@ -1,6 +1,6 @@
 import { test, expect, describe } from 'bun:test';
 
-import { UserError, ApiError, StaleReviewError, EXIT_CODES } from './errors';
+import { UserError, ApiError, StaleReviewError, EXIT_CODES } from './Errors';
 
 describe('UserError', () => {
   test('creates error with message', () => {

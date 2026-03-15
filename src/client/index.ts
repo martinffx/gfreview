@@ -1,3 +1,3 @@
-export * from './forge-client';
-export * from './github-client';
-export * from './gitlab-client';
+export * from './ForgeClient';
+export * from './GitHubClient';
+export * from './GitLabClient';

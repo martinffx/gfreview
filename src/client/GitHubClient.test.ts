@@ -1,7 +1,7 @@
 import { test, expect, describe, mock, beforeEach } from 'bun:test';
 
-import { ApiError } from '../errors';
-import { GitHubClient } from './github-client';
+import { ApiError } from '../Errors';
+import { GitHubClient } from './GitHubClient';
 
 describe('GitHubClient', () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
