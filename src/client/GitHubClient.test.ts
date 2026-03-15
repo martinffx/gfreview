@@ -13,6 +13,8 @@ describe('GitHubClient', () => {
 
   beforeEach(() => {
     mockFetch.mockClear();
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
     global.fetch = mockFetch as unknown as typeof fetch;
   });
 
@@ -127,7 +129,7 @@ describe('GitHubClient', () => {
         json: () => ({}),
       });
 
-      await expect(client.approvePR('owner/repo', 42)).resolves.toBeUndefined();
+      expect(client.approvePR('owner/repo', 42)).resolves.toBeUndefined();
 
       expect(mockFetch).toHaveBeenCalledWith(
         'https://api.github.com/repos/owner/repo/pulls/42/reviews',
@@ -146,7 +148,7 @@ describe('GitHubClient', () => {
         json: () => ({}),
       });
 
-      await expect(client.mergePR('owner/repo', 42)).resolves.toBeUndefined();
+      expect(client.mergePR('owner/repo', 42)).resolves.toBeUndefined();
 
       expect(mockFetch).toHaveBeenCalledWith(
         'https://api.github.com/repos/owner/repo/pulls/42/merge',
@@ -164,7 +166,7 @@ describe('GitHubClient', () => {
         text: () => Promise.resolve('Not Found'),
       });
 
-      await expect(client.getPR('owner/repo', 999)).rejects.toThrow(ApiError);
+      expect(client.getPR('owner/repo', 999)).rejects.toThrow(ApiError);
     });
 
     test('includes status code in ApiError', async () => {
@@ -181,21 +183,23 @@ describe('GitHubClient', () => {
       } catch (e) {
         thrown = true;
         expect(e).toBeInstanceOf(ApiError);
-        expect((e as ApiError).statusCode).toBe(401);
+        if (e instanceof ApiError) {
+          expect(e.statusCode).toBe(401);
+        }
       }
       expect(thrown).toBe(true);
     });
   });
 
   describe('project ID validation', () => {
-    test('throws UserError for invalid project ID', async () => {
-      await expect(client.getPR('invalid', 1)).rejects.toThrow(
+    test('throws UserError for invalid project ID', () => {
+      expect(() => client.getPR('invalid', 1)).toThrow(
         "Invalid project ID: invalid. Expected 'owner/repo' format.",
       );
     });
 
-    test('throws UserError for missing repo', async () => {
-      await expect(client.getPR('owner', 1)).rejects.toThrow(
+    test('throws UserError for missing repo', () => {
+      expect(() => client.getPR('owner', 1)).toThrow(
         "Invalid project ID: owner. Expected 'owner/repo' format.",
       );
     });
@@ -244,7 +248,7 @@ describe('GitHubClient', () => {
 
   describe('unapprovePR', () => {
     test('throws UserError as GitHub does not support it', async () => {
-      await expect(client.unapprovePR('owner/repo', 1)).rejects.toThrow(
+      expect(client.unapprovePR('owner/repo', 1)).rejects.toThrow(
         'GitHub does not support removing approvals. Create a new review with a different event.',
       );
     });

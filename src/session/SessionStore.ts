@@ -6,6 +6,10 @@ import type { ReviewSession } from '../entity/Schemas';
 
 const SESSION_DIR = join(homedir(), '.config', 'gfreview', 'sessions');
 
+function isReviewSession(obj: unknown): obj is ReviewSession {
+  return typeof obj === 'object' && obj !== null && 'projectId' in obj && 'mrIid' in obj;
+}
+
 function getSessionPath(projectId: string, mrIid: number): string {
   const safeId = projectId.replace(/\//g, '_');
   return join(SESSION_DIR, `${safeId}!${mrIid}.json`);
@@ -24,7 +28,11 @@ export const SessionStore = {
     try {
       const path = getSessionPath(projectId, mrIid);
       const content = await readFile(path, 'utf-8');
-      return JSON.parse(content) as ReviewSession;
+      const parsed = JSON.parse(content);
+      if (!isReviewSession(parsed)) {
+        return null;
+      }
+      return parsed;
     } catch {
       return null;
     }
