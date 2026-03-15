@@ -163,9 +163,9 @@ export function createProgram(): Command {
         });
         const projectId = requireProject(config);
         const client = await createClient(config);
-      const body = options.body ? await readBodyFromArg(options.body) : undefined;
-      const side = options.side === 'old' ? 'old' : 'new';
-      await ReviewService.addComment(
+        const body = options.body ? await readBodyFromArg(options.body) : undefined;
+        const side = options.side === 'old' ? 'old' : 'new';
+        await ReviewService.addComment(
           { client, projectId, mrIid: parsePrId(id) },
           {
             file: options.file,
