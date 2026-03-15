@@ -201,11 +201,11 @@ On GitLab, pending draft notes are still accessible server-side and can be revie
 
 `review discard` removes all pending comments and clears session state.
 
-### Discussions
+### Comments
 
 ```
 gfreview diff <id>                     # annotated diff with line numbers
-gfreview discussions <id>              # list all threads
+gfreview comments <id>              # list all threads
 gfreview resolve <id> --discussion-id <did>
 gfreview unresolve <id> --discussion-id <did>
 gfreview note <id> --body <text>       # general (non-inline) comment
@@ -274,7 +274,7 @@ gfreview diff <id>                                               # 1. read annot
 gfreview review start <id>                                       # 2. open session, cache SHAs
 gfreview review comment <id> --file ... --line ... --body ...    # 3. stage comments
 gfreview review submit <id>                                      # 4. submit (or warn if stale)
-gfreview discussions <id>                                        # 5. verify
+gfreview comments <id>                                        # 5. verify
 ```
 
 ---
