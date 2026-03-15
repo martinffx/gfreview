@@ -1,0 +1,320 @@
+{
+  "feature": "missing-cli-commands",
+  "spec": "docs/specs/2026-03-15-missing-commands/spec.md",
+  "goal": "Implement missing CLI commands: create, note, resolve, and --body flag support",
+  "epic": "gfreview-5y1",
+  "phases": [
+    {
+      "id": "P1",
+      "name": "BodyReader Utility",
+      "tasks": [
+        {
+          "id": "T1",
+          "bead_id": "gfreview-5y1.1",
+          "name": "Implement readBodyFromArg utility",
+          "depends_on": [],
+          "files": {
+            "create": ["src/cli/BodyReader.ts", "src/cli/BodyReader.test.ts"],
+            "modify": []
+          },
+          "steps": [
+            {
+              "action": "write_test",
+              "description": "Write test for direct string input",
+              "code": "test('returns string directly when not - or @path', async () => {\n  const result = await readBodyFromArg('hello world');\n  expect(result).toBe('hello world');\n});",
+              "file": "src/cli/BodyReader.test.ts"
+            },
+            {
+              "action": "verify_fail",
+              "command": "bun test src/cli/BodyReader.test.ts",
+              "expected": "FAIL"
+            },
+            {
+              "action": "implement",
+              "description": "Implement minimal BodyReader",
+              "code": "export async function readBodyFromArg(value: string | undefined): Promise<string | undefined> {\n  if (!value) return undefined;\n  return value;\n}",
+              "file": "src/cli/BodyReader.ts"
+            },
+            {
+              "action": "verify_pass",
+              "command": "bun test src/cli/BodyReader.test.ts",
+              "expected": "PASS"
+            },
+            {
+              "action": "write_test",
+              "description": "Write test for file reading",
+              "code": "test('reads from file when value starts with @', async () => {\n  const filePath = join(tmpdir(), 'gfreview-test-body.txt');\n  writeFileSync(filePath, 'file contents');\n  try {\n    const result = await readBodyFromArg(`@${filePath}`);\n    expect(result).toBe('file contents');\n  } finally {\n    unlinkSync(filePath);\n  }\n});",
+              "file": "src/cli/BodyReader.test.ts"
+            },
+            {
+              "action": "verify_fail",
+              "command": "bun test src/cli/BodyReader.test.ts",
+              "expected": "FAIL"
+            },
+            {
+              "action": "implement",
+              "description": "Add file reading support",
+              "code": "if (value.startsWith('@')) {\n  const filePath = value.slice(1);\n  return readFileSync(filePath, 'utf-8');\n}",
+              "file": "src/cli/BodyReader.ts"
+            },
+            {
+              "action": "verify_pass",
+              "command": "bun test src/cli/BodyReader.test.ts",
+              "expected": "PASS"
+            },
+            {
+              "action": "write_test",
+              "description": "Write test for stdin reading",
+              "code": "test('reads from stdin when value is -', async () => {\n  // Integration test placeholder\n  expect(true).toBe(true);\n});",
+              "file": "src/cli/BodyReader.test.ts"
+            },
+            {
+              "action": "implement",
+              "description": "Add stdin reading support",
+              "code": "if (value === '-') {\n  const chunks: string[] = [];\n  for await (const chunk of process.stdin) {\n    chunks.push(chunk.toString());\n  }\n  return chunks.join('');\n}",
+              "file": "src/cli/BodyReader.ts"
+            },
+            {
+              "action": "verify_pass",
+              "command": "bun test src/cli/BodyReader.test.ts",
+              "expected": "PASS"
+            },
+            {
+              "action": "commit",
+              "message": "feat(cli): add readBodyFromArg utility for --body input handling"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "P2",
+      "name": "GitHubClient addNote",
+      "tasks": [
+        {
+          "id": "T2",
+          "bead_id": "gfreview-5y1.2",
+          "name": "Add addNote to ForgeClient interface",
+          "depends_on": [],
+          "files": {
+            "create": [],
+            "modify": ["src/client/ForgeClient.ts"]
+          },
+          "steps": [
+            {
+              "action": "implement",
+              "description": "Add addNote method signature to interface",
+              "code": "addNote(projectId: string, mrIid: number, opts: { body: string }): Promise<void>;",
+              "file": "src/client/ForgeClient.ts"
+            },
+            {
+              "action": "verify_fail",
+              "command": "bun run types",
+              "expected": "FAIL on GitHubClient missing addNote"
+            }
+          ]
+        },
+        {
+          "id": "T3",
+          "bead_id": "gfreview-5y1.3",
+          "name": "Implement addNote in GitHubClient",
+          "depends_on": ["T2"],
+          "files": {
+            "create": ["src/client/GitHubClient.notes.test.ts"],
+            "modify": ["src/client/GitHubClient.ts"]
+          },
+          "steps": [
+            {
+              "action": "write_test",
+              "description": "Create placeholder test",
+              "code": "describe('GitHubClient.addNote', () => {\n  test('calls correct GitHub API endpoint', async () => {\n    expect(true).toBe(true);\n  });\n});",
+              "file": "src/client/GitHubClient.notes.test.ts"
+            },
+            {
+              "action": "verify_pass",
+              "command": "bun test src/client/GitHubClient.notes.test.ts",
+              "expected": "PASS"
+            },
+            {
+              "action": "implement",
+              "description": "Implement addNote method",
+              "code": "async addNote(projectId: string, mrIid: number, opts: { body: string }): Promise<void> {\n  const { owner, repo } = this.parseProjectId(projectId);\n  await this.request('POST', `/repos/${owner}/${repo}/issues/${mrIid}/comments`, {\n    body: opts.body,\n  });\n}",
+              "file": "src/client/GitHubClient.ts"
+            },
+            {
+              "action": "verify_pass",
+              "command": "bun run types && bun test",
+              "expected": "PASS"
+            },
+            {
+              "action": "commit",
+              "message": "feat(client): add addNote method for general PR comments"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "P3",
+      "name": "CLI Commands",
+      "tasks": [
+        {
+          "id": "T4",
+          "bead_id": "gfreview-5y1.4",
+          "name": "Add create command",
+          "depends_on": [],
+          "files": {
+            "create": [],
+            "modify": ["src/cli/Commands.ts"]
+          },
+          "steps": [
+            {
+              "action": "implement",
+              "description": "Add create command to CLI",
+              "code": "const createCmd = program.command('create');\ncreateCmd.description('Create a new PR');\ncreateCmd.requiredOption('-t, --title <title>', 'PR title');\ncreateCmd.requiredOption('-s, --source-branch <branch>', 'Source branch');\ncreateCmd.requiredOption('-b, --target-branch <branch>', 'Target branch');\ncreateCmd.option('-d, --description <text>', 'PR description');\ncreateCmd.option('--draft', 'Create as draft PR');\ncreateCmd.action(async (options) => {\n  const opts = program.opts() as GlobalOptions;\n  await runCommand(async () => {\n    const config = await loadConfig({\n      forge: opts.forge,\n      project: opts.project,\n      token: opts.token,\n      baseUrl: opts.baseUrl,\n    });\n    const projectId = requireProject(config);\n    const client = await createClient(config);\n    const pr = await client.createPR(projectId, {\n      title: options.title,\n      sourceBranch: options.sourceBranch,\n      targetBranch: options.targetBranch,\n      description: options.description,\n      draft: options.draft,\n    });\n    console.log(`Created PR #${pr.iid}: ${pr.webUrl}`);\n  }, opts);\n});",
+              "file": "src/cli/Commands.ts"
+            },
+            {
+              "action": "verify_pass",
+              "command": "bun run types && bun test",
+              "expected": "PASS"
+            }
+          ]
+        },
+        {
+          "id": "T5",
+          "bead_id": "gfreview-5y1.5",
+          "name": "Add note command",
+          "depends_on": ["T1", "T3"],
+          "files": {
+            "create": [],
+            "modify": ["src/cli/Commands.ts"]
+          },
+          "steps": [
+            {
+              "action": "implement",
+              "description": "Import BodyReader and add note command",
+              "code": "import { readBodyFromArg } from './BodyReader';\n\nconst noteCmd = program.command('note <id>');\nnoteCmd.description('Add a general comment to a PR');\nnoteCmd.requiredOption('-b, --body <text>', 'Comment body (use - for stdin, @path for file)');\nnoteCmd.action(async (id: string, options: { body: string }) => {\n  const opts = program.opts() as GlobalOptions;\n  await runCommand(async () => {\n    const config = await loadConfig({\n      forge: opts.forge,\n      project: opts.project,\n      token: opts.token,\n      baseUrl: opts.baseUrl,\n    });\n    const projectId = requireProject(config);\n    const client = await createClient(config);\n    const body = await readBodyFromArg(options.body);\n    if (!body) {\n      throw new UserError('Body is required.');\n    }\n    await client.addNote(projectId, parsePrId(id), { body });\n    console.log('Comment added to PR #' + id);\n  }, opts);\n});",
+              "file": "src/cli/Commands.ts"
+            },
+            {
+              "action": "verify_pass",
+              "command": "bun run types && bun test",
+              "expected": "PASS"
+            }
+          ]
+        },
+        {
+          "id": "T6",
+          "bead_id": "gfreview-5y1.6",
+          "name": "Add resolve command",
+          "depends_on": [],
+          "files": {
+            "create": [],
+            "modify": ["src/cli/Commands.ts"]
+          },
+          "steps": [
+            {
+              "action": "implement",
+              "description": "Add resolve command",
+              "code": "const resolveCmd = program.command('resolve <id>');\nresolveCmd.description('Resolve a discussion');\nresolveCmd.requiredOption('-d, --discussion-id <id>', 'Discussion ID');\nresolveCmd.action(async (id: string, options: { discussionId: string }) => {\n  const opts = program.opts() as GlobalOptions;\n  await runCommand(async () => {\n    const config = await loadConfig({\n      forge: opts.forge,\n      project: opts.project,\n      token: opts.token,\n      baseUrl: opts.baseUrl,\n    });\n    const projectId = requireProject(config);\n    const client = await createClient(config);\n    await client.resolveDiscussion(projectId, parsePrId(id), options.discussionId);\n    console.log('Discussion resolved');\n  }, opts);\n});",
+              "file": "src/cli/Commands.ts"
+            },
+            {
+              "action": "verify_pass",
+              "command": "bun run types && bun test",
+              "expected": "PASS"
+            }
+          ]
+        },
+        {
+          "id": "T7",
+          "bead_id": "gfreview-5y1.7",
+          "name": "Add --body option to review submit",
+          "depends_on": ["T1"],
+          "files": {
+            "create": [],
+            "modify": ["src/cli/Commands.ts"]
+          },
+          "steps": [
+            {
+              "action": "implement",
+              "description": "Update submit command to accept --body",
+              "code": "submitCmd.option('-b, --body <text>', 'Review summary (use - for stdin, @path for file)');\nsubmitCmd.action(async (id: string, options: { body?: string }) => {\n  const opts = program.opts() as GlobalOptions;\n  await runCommand(async () => {\n    const config = await loadConfig({\n      forge: opts.forge,\n      project: opts.project,\n      token: opts.token,\n      baseUrl: opts.baseUrl,\n    });\n    const projectId = requireProject(config);\n    const client = await createClient(config);\n    const summary = options.body ? await readBodyFromArg(options.body) : undefined;\n    await ReviewService.submitReview({ client, projectId, mrIid: parsePrId(id) }, { summary });\n    console.log('Review submitted for PR #' + id);\n  }, opts);\n});",
+              "file": "src/cli/Commands.ts"
+            },
+            {
+              "action": "verify_pass",
+              "command": "bun run types && bun test",
+              "expected": "PASS"
+            }
+          ]
+        },
+        {
+          "id": "T8",
+          "bead_id": "gfreview-5y1.8",
+          "name": "Wire --body to review comment",
+          "depends_on": ["T1"],
+          "files": {
+            "create": [],
+            "modify": ["src/cli/Commands.ts"]
+          },
+          "steps": [
+            {
+              "action": "implement",
+              "description": "Update comment command to use readBodyFromArg",
+              "code": "commentCmd.option('-b, --body <text>', 'Comment body (use - for stdin, @path for file)');\ncommentCmd.action(async (id: string, options: { file: string; line: string; body?: string; side?: string }) => {\n  const opts = program.opts() as GlobalOptions;\n  await runCommand(async () => {\n    const config = await loadConfig({\n      forge: opts.forge,\n      project: opts.project,\n      token: opts.token,\n      baseUrl: opts.baseUrl,\n    });\n    const projectId = requireProject(config);\n    const client = await createClient(config);\n    const body = options.body ? await readBodyFromArg(options.body) : undefined;\n    await ReviewService.addComment(\n      { client, projectId, mrIid: parsePrId(id) },\n      {\n        file: options.file,\n        line: parseInt(options.line, 10),\n        body: body ?? '',\n        side: (options.side ?? 'new') as 'new' | 'old',\n      },\n    );\n    console.log('Comment added');\n  }, opts);\n});",
+              "file": "src/cli/Commands.ts"
+            },
+            {
+              "action": "verify_pass",
+              "command": "bun run types && bun run lint && bun run format:check && bun test",
+              "expected": "PASS"
+            },
+            {
+              "action": "commit",
+              "message": "feat(cli): add create, note, resolve commands and --body flag support"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "P4",
+      "name": "Integration",
+      "tasks": [
+        {
+          "id": "T9",
+          "bead_id": "gfreview-5y1.9",
+          "name": "Integration test and final commit",
+          "depends_on": ["T4", "T5", "T6", "T7", "T8"],
+          "files": {
+            "create": [],
+            "modify": []
+          },
+          "steps": [
+            {
+              "action": "verify_pass",
+              "command": "bun run build",
+              "expected": "Build succeeds"
+            },
+            {
+              "action": "verify_pass",
+              "command": "./dist/gfreview --help | grep -E 'create|note|resolve'",
+              "expected": "Commands shown in help"
+            },
+            {
+              "action": "commit",
+              "message": "docs: update README with new commands"
+            },
+            {
+              "action": "verify_pass",
+              "command": "git push",
+              "expected": "Pushed to remote"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

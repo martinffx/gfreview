@@ -425,6 +425,13 @@ export class GitLabClient implements ForgeClient {
     });
   }
 
+  async addNote(projectId: string, mrIid: number, opts: { body: string }): Promise<void> {
+    const encodedId = this.encodeProjectId(projectId);
+    await this.request('POST', `/projects/${encodedId}/merge_requests/${mrIid}/notes`, {
+      body: opts.body,
+    });
+  }
+
   private transformMR(mr: GitLabMR): PR {
     return {
       id: mr.id,

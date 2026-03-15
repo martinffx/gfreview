@@ -8,6 +8,7 @@ import { UserError, ApiError, StaleReviewError, EXIT_CODES } from '../Errors';
 import { DiffService } from '../service/DiffService';
 import { DiscussionService } from '../service/DiscussionService';
 import { ReviewService } from '../service/ReviewService';
+import { readBodyFromArg } from './BodyReader';
 import { Output } from './Output';
 
 type GlobalOptions = {
@@ -68,14 +69,14 @@ export function createProgram(): Command {
 
   program
     .name('gfreview')
-    .description('CLI for inline diff comments on GitHub PRs')
+    .description('CLI for inline diff comments on Git Forge PRs')
     .version('0.1.0');
 
   program
-    .option('--forge <forge>', 'Forge to use (github or gitlab)')
-    .option('-p, --project <id>', 'Project ID (owner/repo)')
+    .option('--forge <forge>', 'Forge to use (github or gitlab, defaults to git remote)')
+    .option('-p, --project <id>', 'Project ID (owner/repo, defaults to git remote)')
     .option('--token <token>', 'API token (or use GITHUB_TOKEN/GITLAB_TOKEN env var)')
-    .option('--base-url <url>', 'API base URL')
+    .option('--base-url <url>', 'API base URL (defaults to git remote)')
     .option('--json', 'Output as JSON')
     .option('--verbose', 'Show verbose output');
 
@@ -148,7 +149,7 @@ export function createProgram(): Command {
   commentCmd.description('Add a comment to a PR line');
   commentCmd.requiredOption('-f, --file <path>', 'File path');
   commentCmd.requiredOption('-l, --line <n>', 'Line number');
-  commentCmd.option('-b, --body <text>', 'Comment body');
+  commentCmd.option('-b, --body <text>', 'Comment body (use - for stdin, @path for file)');
   commentCmd.option('--side <side>', 'Side (new or old)', 'new');
   commentCmd.action(
     async (id: string, options: { file: string; line: string; body?: string; side?: string }) => {
@@ -162,13 +163,14 @@ export function createProgram(): Command {
         });
         const projectId = requireProject(config);
         const client = await createClient(config);
+        const body = options.body ? await readBodyFromArg(options.body) : undefined;
         const side = options.side === 'old' ? 'old' : 'new';
         await ReviewService.addComment(
           { client, projectId, mrIid: parsePrId(id) },
           {
             file: options.file,
             line: parseInt(options.line, 10),
-            body: options.body ?? '',
+            body: body ?? '',
             side,
           },
         );
@@ -180,7 +182,8 @@ export function createProgram(): Command {
   // review submit
   const submitCmd = reviewCmd.command('submit <id>');
   submitCmd.description('Submit review');
-  submitCmd.action(async (id: string) => {
+  submitCmd.option('-b, --body <text>', 'Review summary (use - for stdin, @path for file)');
+  submitCmd.action(async (id: string, options: { body?: string }) => {
     const opts = program.opts<GlobalOptions>();
     await runCommand(async () => {
       const config = await loadConfig({
@@ -191,7 +194,8 @@ export function createProgram(): Command {
       });
       const projectId = requireProject(config);
       const client = await createClient(config);
-      await ReviewService.submitReview({ client, projectId, mrIid: parsePrId(id) });
+      const summary = options.body ? await readBodyFromArg(options.body) : undefined;
+      await ReviewService.submitReview({ client, projectId, mrIid: parsePrId(id) }, summary);
       console.log('Review submitted for PR #' + id);
     }, opts);
   });
@@ -303,6 +307,30 @@ export function createProgram(): Command {
     }, opts);
   });
 
+  // note
+  const noteCmd = program.command('note <id>');
+  noteCmd.description('Add a general comment to a PR');
+  noteCmd.requiredOption('-b, --body <text>', 'Comment body (use - for stdin, @path for file)');
+  noteCmd.action(async (id: string, options: { body: string }) => {
+    const opts = program.opts<GlobalOptions>();
+    await runCommand(async () => {
+      const config = await loadConfig({
+        forge: opts.forge,
+        project: opts.project,
+        token: opts.token,
+        baseUrl: opts.baseUrl,
+      });
+      const projectId = requireProject(config);
+      const client = await createClient(config);
+      const body = await readBodyFromArg(options.body);
+      if (!body) {
+        throw new UserError('Body is required.');
+      }
+      await client.addNote(projectId, parsePrId(id), { body });
+      console.log('Comment added to PR #' + id);
+    }, opts);
+  });
+
   // approve
   const approveCmd = program.command('approve <id>');
   approveCmd.description('Approve PR');
@@ -338,6 +366,56 @@ export function createProgram(): Command {
       const client = await createClient(config);
       await client.mergePR(projectId, parsePrId(id));
       console.log('PR #' + id + ' merged');
+    }, opts);
+  });
+
+  // create
+  const createCmd = program.command('create');
+  createCmd.description('Create a new PR');
+  createCmd.requiredOption('-t, --title <title>', 'PR title');
+  createCmd.requiredOption('-s, --source-branch <branch>', 'Source branch');
+  createCmd.requiredOption('-b, --target-branch <branch>', 'Target branch');
+  createCmd.option('-d, --description <text>', 'PR description');
+  createCmd.option('--draft', 'Create as draft PR');
+  createCmd.action(async (options) => {
+    const opts = program.opts<GlobalOptions>();
+    await runCommand(async () => {
+      const config = await loadConfig({
+        forge: opts.forge,
+        project: opts.project,
+        token: opts.token,
+        baseUrl: opts.baseUrl,
+      });
+      const projectId = requireProject(config);
+      const client = await createClient(config);
+      const pr = await client.createPR(projectId, {
+        title: options.title,
+        sourceBranch: options.sourceBranch,
+        targetBranch: options.targetBranch,
+        description: options.description,
+        draft: options.draft,
+      });
+      console.log(`Created PR #${pr.iid}: ${pr.webUrl}`);
+    }, opts);
+  });
+
+  // resolve
+  const resolveCmd = program.command('resolve <id>');
+  resolveCmd.description('Resolve a discussion');
+  resolveCmd.requiredOption('-d, --discussion-id <id>', 'Discussion ID');
+  resolveCmd.action(async (id: string, options: { discussionId: string }) => {
+    const opts = program.opts<GlobalOptions>();
+    await runCommand(async () => {
+      const config = await loadConfig({
+        forge: opts.forge,
+        project: opts.project,
+        token: opts.token,
+        baseUrl: opts.baseUrl,
+      });
+      const projectId = requireProject(config);
+      const client = await createClient(config);
+      await client.resolveDiscussion(projectId, parsePrId(id), options.discussionId);
+      console.log('Discussion resolved');
     }, opts);
   });
 
