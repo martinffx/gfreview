@@ -1,6 +1,12 @@
 {
   "name": "gfreview",
-  "private": true,
+  "version": "0.1.0",
+  "description": "CLI for posting inline diff comments on merge/pull requests",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/martinffx/gfreview.git"
+  },
   "bin": {
     "gfreview": "./index.ts"
   },
