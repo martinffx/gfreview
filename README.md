@@ -44,18 +44,20 @@ bun run build
 
 ### Environment Variables
 
-| Variable | Description |
-|----------|-------------|
-| `GITLAB_TOKEN` | GitLab access token (sets forge to GitLab) |
-| `GITHUB_TOKEN` | GitHub PAT (sets forge to GitHub) |
-| `GITLAB_URL` | GitLab instance URL (default: https://gitlab.com) |
+| Variable       | Description                                       |
+| -------------- | ------------------------------------------------- |
+| `GITLAB_TOKEN` | GitLab access token (sets forge to GitLab)        |
+| `GITHUB_TOKEN` | GitHub PAT (sets forge to GitHub)                 |
+| `GITLAB_URL`   | GitLab instance URL (default: https://gitlab.com) |
 
 **Auto-detection:**
+
 - **Forge**: Determined by which token is set (`GITLAB_TOKEN` → GitLab, `GITHUB_TOKEN` → GitHub)
 - **Project**: Parsed from `git remote get-url origin` if run inside a git repository
 - **GitHub URL**: Always uses `https://api.github.com`
 
 Override auto-detected values with CLI flags:
+
 ```
 gfreview list --project owner/repo     # Override project
 gfreview list --forge gitlab           # Override forge
