@@ -27,7 +27,7 @@ jobs:
       - run: bun install --frozen-lockfile
       - name: Build
         run: bun build index.ts --compile --outfile dist/${{ matrix.artifact }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: ${{ matrix.artifact }}
           path: dist/${{ matrix.artifact }}
@@ -38,16 +38,11 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v8
         with:
           path: dist
           pattern: gfreview-*
           merge-multiple: true
-      - name: Set version from tag
-        run: |
-          VERSION=${GITHUB_REF_NAME#v}
-          jq --arg v "$VERSION" '.version = $v' package.json > package.json.tmp
-          mv package.json.tmp package.json
       - name: Checksum
         run: |
           cd dist
@@ -55,6 +50,7 @@ jobs:
       - uses: softprops/action-gh-release@v2
         with:
           files: dist/*
+          name: ${{ github.ref_name }}
           generate_release_notes: true
 
   publish-npm:
