@@ -1,8 +1,7 @@
 name: Release
-
 on:
   push:
-    tags: ['v*']
+    tags: ["v*"]
 
 jobs:
   build:
@@ -24,14 +23,10 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v6
-
       - uses: oven-sh/setup-bun@v2
-
       - run: bun install --frozen-lockfile
-
       - name: Build
         run: bun build index.ts --compile --outfile dist/${{ matrix.artifact }}
-
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
@@ -43,55 +38,41 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v6
-
-      - uses: oven-sh/setup-bun@v2
-
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@v6
         with:
           path: dist
           pattern: gfreview-*
           merge-multiple: true
-
+      - name: Set version from tag
+        run: |
+          VERSION=${GITHUB_REF_NAME#v}
+          jq --arg v "$VERSION" '.version = $v' package.json > package.json.tmp
+          mv package.json.tmp package.json
       - name: Checksum
         run: |
           cd dist
           sha256sum * > checksums.txt
-
-      - name: Generate release notes
-        id: changelog
-        run: |
-          bun x conventional-changelog-cli -p angular > changelog.tmp
-          NOTES=$(cat changelog.tmp)
-          echo "notes<<EOF" >> $GITHUB_OUTPUT
-          echo "$NOTES" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-
       - uses: softprops/action-gh-release@v2
         with:
           files: dist/*
-          body: ${{ steps.changelog.outputs.notes }}
+          generate_release_notes: true
 
   publish-npm:
     needs: release
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-
       - uses: oven-sh/setup-bun@v2
-
       - run: bun install --frozen-lockfile
-
       - name: Set version from tag
         run: |
           VERSION=${GITHUB_REF_NAME#v}
           jq --arg v "$VERSION" '.version = $v' package.json > package.json.tmp
           mv package.json.tmp package.json
-
       - name: Build JS bundle
         run: bun run build:node
-
       - name: Generate type declarations
         run: bun run build:types
-
-      - run: bun publish --access public --token ${{ secrets.NPM_TOKEN }}
+      - run: bun publish --access public
+        env:
+          BUN_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
