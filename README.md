@@ -1,6 +1,13 @@
 # Git Forge Review
 
-CLI for managing code reviews on git forges
+Agentic code review for git forges.
+
+gfreview gives AI coding agents (Claude Code, Codex, Gemini CLI) a way
+to review pull requests and leave inline comments — no MCP server, no
+browser, no screenshots. Just a CLI that talks to the forge API.
+
+Stage draft comments, submit reviews, and manage discussions from the
+terminal. Works with GitHub and GitLab.
 
 ## Installation
 
@@ -35,19 +42,25 @@ bun run build
 
 ## Configuration
 
-Environment variables:
+### Environment Variables
 
-- `GFREVIEW_TOKEN` — Required (GitHub PAT or GitLab token)
-- `GFREVIEW_URL` — Default: https://github.com or https://gitlab.com
-- `GFREVIEW_FORGE` — gitlab or github (auto-detected)
-- `GFREVIEW_PROJECT` — Optional: owner/repo or group/project
+| Variable       | Description                                       |
+| -------------- | ------------------------------------------------- |
+| `GITLAB_TOKEN` | GitLab access token (sets forge to GitLab)        |
+| `GITHUB_TOKEN` | GitHub PAT (sets forge to GitHub)                 |
+| `GITLAB_URL`   | GitLab instance URL (default: https://gitlab.com) |
 
-Or use a config file at `$XDG_CONFIG_HOME/gfreview/config.toml`:
+**Auto-detection:**
 
-```toml
-forge = "github"
-url = "https://github.com"
-project = "owner/repo"
+- **Forge**: Determined by which token is set (`GITLAB_TOKEN` → GitLab, `GITHUB_TOKEN` → GitHub)
+- **Project**: Parsed from `git remote get-url origin` if run inside a git repository
+- **GitHub URL**: Always uses `https://api.github.com`
+
+Override auto-detected values with CLI flags:
+
+```
+gfreview list --project owner/repo     # Override project
+gfreview list --forge gitlab           # Override forge
 ```
 
 ## Usage
@@ -94,11 +107,13 @@ gfreview diff outputs an LLM-optimized format with line numbers that map directl
 
 ## Agent Workflow
 
+```bash
 gfreview diff <id> # Read annotated diff
 gfreview review start <id> # Open session, cache SHAs
 gfreview review comment ... # Stage comments
 gfreview review submit <id> # Submit (or warn if stale)
 gfreview comments <id> # Verify
+```
 
 ## Development
 
