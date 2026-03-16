@@ -93,7 +93,7 @@ get_latest_version() {
 		}
 
 		local tag_name
-		tag_name="$(echo "$response" | grep '"tag_name"' | sed -E 's/.*"tag_name":\s*"([^"]+)".*/\1/')" || {
+		tag_name="$(echo "$response" | grep '"tag_name"' | head -1 | sed -E 's/.*"tag_name"[^"]*"([^"]+)".*/\1/')" || {
 			log_error "Failed to parse release information"
 			exit 1
 		}
