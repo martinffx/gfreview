@@ -1,5 +1,11 @@
 import type { PR, DiffVersion, Discussion, FileDiff } from '../entity/Schemas';
-import type { ForgeClient, CommentOptions, CommentResult, PendingReview, Side } from './ForgeClient';
+import type {
+  ForgeClient,
+  CommentOptions,
+  CommentResult,
+  PendingReview,
+  Side,
+} from './ForgeClient';
 
 import { ApiError, UserError } from '../Errors';
 

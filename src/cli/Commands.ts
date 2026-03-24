@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 
-import type { Config } from '../entity/Schemas';
 import type { Severity } from '../client/ForgeClient';
+import type { Config } from '../entity/Schemas';
 
 import { GitHubClient } from '../client/GitHubClient';
 import { loadConfig } from '../Config';
