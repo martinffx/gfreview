@@ -1,5 +1,5 @@
 import type { PR, DiffVersion, Discussion, FileDiff } from '../entity/Schemas';
-import type { ForgeClient, CommentOptions, CommentResult } from './ForgeClient';
+import type { ForgeClient, CommentOptions, CommentResult, PendingReview } from './ForgeClient';
 
 import { ApiError, StaleReviewError, UserError } from '../Errors';
 
@@ -165,6 +165,15 @@ export class GitLabClient implements ForgeClient {
     const hashBuffer = await crypto.subtle.digest('SHA-1', data);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  async getCurrentUser(): Promise<{ id: number; login: string }> {
+    const user = await this.request<{ id: number; username: string }>('GET', '/user');
+    return { id: user.id, login: user.username };
+  }
+
+  async getPendingReview(_projectId: string, _mrIid: number): Promise<PendingReview | null> {
+    return null;
   }
 
   async getProjectId(projectPath: string): Promise<string> {

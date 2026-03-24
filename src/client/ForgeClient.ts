@@ -1,21 +1,33 @@
 import type { PR, DiffVersion, Discussion, FileDiff } from '../entity/Schemas';
 
+export type Side = 'new' | 'old';
+export type Severity = 'blocker' | 'issue' | 'suggestion' | 'nit';
+
 export type CommentOptions = {
-  file: string;
-  line: number;
+  file?: string;
+  line?: number;
   lineEnd?: number;
-  side?: 'new' | 'old';
+  side?: Side;
   body: string;
+  severity?: Severity;
 };
 
 export type CommentResult = {
   id: string | number;
-  file: string;
-  line: number;
+  file?: string;
+  line?: number;
   lineEnd?: number;
-  side: 'new' | 'old';
+  side?: Side;
   body: string;
   createdAt?: string;
+  isGeneralComment?: boolean;
+};
+
+export type PendingReview = {
+  id: number;
+  userId: number;
+  state: 'PENDING' | 'APPROVED' | 'CHANGES_REQUESTED' | 'COMMENTED';
+  submittedAt: string | null;
 };
 
 export interface ForgeClient {
@@ -42,6 +54,8 @@ export interface ForgeClient {
   getDiff(projectId: string, mrIid: number): Promise<FileDiff[]>;
   getVersions(projectId: string, mrIid: number): Promise<DiffVersion>;
 
+  getCurrentUser(): Promise<{ id: number; login: string }>;
+  getPendingReview(projectId: string, mrIid: number): Promise<PendingReview | null>;
   startReview(projectId: string, mrIid: number): Promise<number | undefined>;
   addComment(projectId: string, mrIid: number, opts: CommentOptions): Promise<CommentResult>;
   listComments(projectId: string, mrIid: number): Promise<CommentResult[]>;

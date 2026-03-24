@@ -23,6 +23,7 @@
           "pascalCase": true
         }
       }
-    ]
+    ],
+    "no-unsafe-type-assertion": "off"
   }
 }
