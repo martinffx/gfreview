@@ -15,7 +15,11 @@ export type ReviewStatus = {
 };
 
 export class ReviewService {
-  constructor(private client: ForgeClient, private projectId: string, private mrIid: number) {}
+  constructor(
+    private client: ForgeClient,
+    private projectId: string,
+    private mrIid: number,
+  ) {}
 
   async startReview(): Promise<number | undefined> {
     return this.client.startReview(this.projectId, this.mrIid);

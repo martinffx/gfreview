@@ -168,10 +168,7 @@ export class GitLabClient implements ForgeClient {
   }
 
   async getCurrentUser(): Promise<{ id: number; login: string }> {
-    const user = await this.request<{ id: number; username: string }>(
-      'GET',
-      '/user',
-    );
+    const user = await this.request<{ id: number; username: string }>('GET', '/user');
     return { id: user.id, login: user.username };
   }
 

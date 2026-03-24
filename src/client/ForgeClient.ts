@@ -1,12 +1,15 @@
 import type { PR, DiffVersion, Discussion, FileDiff } from '../entity/Schemas';
 
+export type Side = 'new' | 'old';
+export type Severity = 'blocker' | 'issue' | 'suggestion' | 'nit';
+
 export type CommentOptions = {
   file?: string;
   line?: number;
   lineEnd?: number;
-  side?: 'new' | 'old';
+  side?: Side;
   body: string;
-  severity?: 'blocker' | 'issue' | 'suggestion' | 'nit';
+  severity?: Severity;
 };
 
 export type CommentResult = {
@@ -14,7 +17,7 @@ export type CommentResult = {
   file?: string;
   line?: number;
   lineEnd?: number;
-  side?: 'new' | 'old';
+  side?: Side;
   body: string;
   createdAt?: string;
   isGeneralComment?: boolean;

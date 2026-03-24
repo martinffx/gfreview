@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 
 import type { Config } from '../entity/Schemas';
+import type { Severity } from '../client/ForgeClient';
 
 import { GitHubClient } from '../client/GitHubClient';
 import { loadConfig } from '../Config';
@@ -158,7 +159,17 @@ export function createProgram(): Command {
   commentCmd.option('--side <side>', 'Side (new or old)', 'new');
   commentCmd.option('--severity <level>', 'Severity (blocker, issue, suggestion, nit)');
   commentCmd.action(
-    async (id: string, options: { file?: string; line?: string; body?: string; bodyFile?: string; side?: string; severity?: string }) => {
+    async (
+      id: string,
+      options: {
+        file?: string;
+        line?: string;
+        body?: string;
+        bodyFile?: string;
+        side?: string;
+        severity?: string;
+      },
+    ) => {
       const opts = program.opts<GlobalOptions>();
       await runCommand(async () => {
         const config = await loadConfig({
@@ -181,14 +192,19 @@ export function createProgram(): Command {
           throw new UserError('Comment body is required. Use --body or --body-file.');
         }
 
-        const validSeverities = ['blocker', 'issue', 'suggestion', 'nit'] as const;
-        type Severity = (typeof validSeverities)[number];
-        const severity: Severity | undefined = options.severity && validSeverities.includes(options.severity as Severity)
-          ? (options.severity as Severity)
-          : undefined;
+        const severity = parseSeverity(options.severity);
 
-        if (severity && !validSeverities.includes(severity)) {
-          throw new UserError('Invalid severity. Use: blocker, issue, suggestion, or nit.');
+        function parseSeverity(value: string | undefined): Severity | undefined {
+          if (!value) return undefined;
+          switch (value) {
+            case 'blocker':
+            case 'issue':
+            case 'suggestion':
+            case 'nit':
+              return value;
+            default:
+              throw new UserError('Invalid severity. Use: blocker, issue, suggestion, or nit.');
+          }
         }
 
         const isLineComment = options.file && options.line;
@@ -201,8 +217,8 @@ export function createProgram(): Command {
         if (!isLineComment && !isGeneralComment) {
           throw new UserError(
             'Line comments require both --file and --line.\n' +
-            'For general comments, omit --file and --line.\n' +
-            'Example: gfreview review comment 4 --body "Overall feedback"',
+              'For general comments, omit --file and --line.\n' +
+              'Example: gfreview review comment 4 --body "Overall feedback"',
           );
         }
 
@@ -287,7 +303,9 @@ export function createProgram(): Command {
       const pendingReview = await client.getPendingReview(projectId, parsePrId(id));
 
       if (!pendingReview) {
-        console.log('No pending review for PR #' + id + '. Run "gfreview review start ' + id + '" to start.');
+        console.log(
+          'No pending review for PR #' + id + '. Run "gfreview review start ' + id + '" to start.',
+        );
         return;
       }
 
@@ -339,7 +357,9 @@ export function createProgram(): Command {
       const client = await createClient(config);
       const pendingReview = await client.getPendingReview(projectId, parsePrId(id));
       if (!pendingReview) {
-        console.log('No pending review for PR #' + id + '. Run "gfreview review start ' + id + '" to start.');
+        console.log(
+          'No pending review for PR #' + id + '. Run "gfreview review start ' + id + '" to start.',
+        );
         return;
       }
       console.log('Review refreshed. Pending review ID: ' + pendingReview.id);

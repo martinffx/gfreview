@@ -1,15 +1,5 @@
-import type {
-  PR,
-  DiffVersion,
-  Discussion,
-  FileDiff,
-} from '../entity/Schemas';
-import type {
-  ForgeClient,
-  CommentOptions,
-  CommentResult,
-  PendingReview,
-} from './ForgeClient';
+import type { PR, DiffVersion, Discussion, FileDiff } from '../entity/Schemas';
+import type { ForgeClient, CommentOptions, CommentResult, PendingReview, Side } from './ForgeClient';
 
 import { ApiError, UserError } from '../Errors';
 
@@ -108,11 +98,7 @@ export class GitHubClient implements ForgeClient {
     if (!response.ok) {
       const errorBody = await response.text();
       const parsedError = this.parseErrorResponse(errorBody, response.status);
-      throw new ApiError(
-        parsedError.message,
-        response.status,
-        parsedError.details,
-      );
+      throw new ApiError(parsedError.message, response.status, parsedError.details);
     }
 
     if (response.status === 204) {
@@ -131,8 +117,9 @@ export class GitHubClient implements ForgeClient {
       if (typeof parsed !== 'object' || parsed === null) {
         return { message: `GitHub API error: ${status}` };
       }
-      const p = parsed as GitHubErrorResponse;
-      const errors = p.errors ?? [];
+      const p = parsed;
+      // oxlint-disable-next-line no-unsafe-type-assertion
+      const errors = (p as GitHubErrorResponse).errors ?? [];
 
       if (status === 422) {
         const bodyLengthError = errors.find(
@@ -164,23 +151,16 @@ export class GitHubClient implements ForgeClient {
     }
   }
 
-  private transformState(
-    state: string,
-  ): 'opened' | 'closed' | 'merged' | 'locked' {
+  private transformState(state: string): 'opened' | 'closed' | 'merged' | 'locked' {
     if (state === 'open') return 'opened';
-    if (state === 'closed' || state === 'merged' || state === 'locked')
-      return state;
+    if (state === 'closed' || state === 'merged' || state === 'locked') return state;
     return 'closed';
   }
 
-  private parseProjectId(
-    projectId: string,
-  ): { owner: string; repo: string } {
+  private parseProjectId(projectId: string): { owner: string; repo: string } {
     const [owner, repo] = projectId.split('/');
     if (!owner || !repo) {
-      throw new UserError(
-        `Invalid project ID: ${projectId}. Expected 'owner/repo' format.`,
-      );
+      throw new UserError(`Invalid project ID: ${projectId}. Expected 'owner/repo' format.`);
     }
     return { owner, repo };
   }
@@ -197,10 +177,7 @@ export class GitHubClient implements ForgeClient {
     return projectPath;
   }
 
-  async listPRs(
-    projectId: string,
-    opts: { state?: string; limit?: number },
-  ): Promise<PR[]> {
+  async listPRs(projectId: string, opts: { state?: string; limit?: number }): Promise<PR[]> {
     const { owner, repo } = this.parseProjectId(projectId);
     const params = new URLSearchParams();
     if (opts.state) params.set('state', opts.state);
@@ -343,10 +320,7 @@ export class GitHubClient implements ForgeClient {
     return pr.diffVersions ?? { headSha: '' };
   }
 
-  async getPendingReview(
-    projectId: string,
-    mrIid: number,
-  ): Promise<PendingReview | null> {
+  async getPendingReview(projectId: string, mrIid: number): Promise<PendingReview | null> {
     const { owner, repo } = this.parseProjectId(projectId);
     const currentUser = await this.getCurrentUser();
 
@@ -397,11 +371,7 @@ export class GitHubClient implements ForgeClient {
     return body;
   }
 
-  async addComment(
-    projectId: string,
-    mrIid: number,
-    opts: CommentOptions,
-  ): Promise<CommentResult> {
+  async addComment(projectId: string, mrIid: number, opts: CommentOptions): Promise<CommentResult> {
     if (opts.body.length > GITHUB_BODY_MAX_LENGTH) {
       throw new UserError(
         `Comment body exceeds GitHub's ${GITHUB_BODY_MAX_LENGTH} character limit (${opts.body.length} characters).`,
@@ -495,14 +465,17 @@ export class GitHubClient implements ForgeClient {
 
     const pendingComments = reviewComments
       .filter((c) => c.pull_request_review_id === pendingReview?.id)
-      .map((c) => ({
-        id: c.id,
-        file: c.path,
-        line: c.line ?? undefined,
-        side: (c.side === 'LEFT' ? 'old' : 'new') as 'old' | 'new',
-        body: c.body,
-        createdAt: c.created_at,
-      }));
+      .map((c) => {
+        const side: Side = c.side === 'LEFT' ? 'old' : 'new';
+        return {
+          id: c.id,
+          file: c.path,
+          line: c.line ?? undefined,
+          side,
+          body: c.body,
+          createdAt: c.created_at,
+        };
+      });
 
     const generalComments = issueComments
       .filter((c) => c.user.id === currentUser.id)
@@ -516,11 +489,7 @@ export class GitHubClient implements ForgeClient {
     return [...pendingComments, ...generalComments];
   }
 
-  async submitReview(
-    projectId: string,
-    mrIid: number,
-    opts?: { summary?: string },
-  ): Promise<void> {
+  async submitReview(projectId: string, mrIid: number, opts?: { summary?: string }): Promise<void> {
     const { owner, repo } = this.parseProjectId(projectId);
     const pendingReview = await this.getPendingReview(projectId, mrIid);
 
@@ -530,10 +499,14 @@ export class GitHubClient implements ForgeClient {
       );
     }
 
-    await this.request('POST', `/repos/${owner}/${repo}/pulls/${mrIid}/reviews/${pendingReview.id}/events`, {
-      event: 'COMMENT',
-      body: opts?.summary ?? '',
-    });
+    await this.request(
+      'POST',
+      `/repos/${owner}/${repo}/pulls/${mrIid}/reviews/${pendingReview.id}/events`,
+      {
+        event: 'COMMENT',
+        body: opts?.summary ?? '',
+      },
+    );
   }
 
   async discardReview(projectId: string, mrIid: number): Promise<void> {
@@ -560,9 +533,7 @@ export class GitHubClient implements ForgeClient {
     _mrIid: number,
     _discussionId: string,
   ): Promise<void> {
-    throw new UserError(
-      'GitHub does not support resolving comments via API. Use the web UI.',
-    );
+    throw new UserError('GitHub does not support resolving comments via API. Use the web UI.');
   }
 
   async unresolveDiscussion(
@@ -570,9 +541,7 @@ export class GitHubClient implements ForgeClient {
     _mrIid: number,
     _discussionId: string,
   ): Promise<void> {
-    throw new UserError(
-      'GitHub does not support resolving comments via API. Use the web UI.',
-    );
+    throw new UserError('GitHub does not support resolving comments via API. Use the web UI.');
   }
 
   async addNote(projectId: string, mrIid: number, opts: { body: string }): Promise<void> {
