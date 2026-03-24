@@ -1,12 +1,6 @@
 import type { ForgeClient } from '../client/ForgeClient';
 import type { Discussion } from '../entity/Schemas';
 
-export type DiscussionServiceOptions = {
-  client: ForgeClient;
-  projectId: string;
-  mrIid: number;
-};
-
 export type FormattedDiscussion = {
   id: string;
   isResolved: boolean;
@@ -21,12 +15,17 @@ export type FormattedDiscussion = {
   }>;
 };
 
-export const DiscussionService = {
-  async list(opts: DiscussionServiceOptions): Promise<FormattedDiscussion[]> {
-    const discussions = await opts.client.listDiscussions(opts.projectId, opts.mrIid);
+export class DiscussionService {
+  constructor(
+    private readonly client: ForgeClient,
+    private readonly projectId: string,
+    private readonly mrIid: number,
+  ) {}
 
+  async list(): Promise<FormattedDiscussion[]> {
+    const discussions = await this.client.listDiscussions(this.projectId, this.mrIid);
     return discussions.map((d) => this.formatDiscussion(d));
-  },
+  }
 
   formatDiscussion(discussion: Discussion): FormattedDiscussion {
     const firstNote = discussion.notes[0];
@@ -45,7 +44,7 @@ export const DiscussionService = {
         createdAt: n.created_at,
       })),
     };
-  },
+  }
 
   formatForDisplay(discussions: FormattedDiscussion[]): string {
     const lines: string[] = [];
@@ -72,5 +71,5 @@ export const DiscussionService = {
     }
 
     return lines.join('\n');
-  },
-};
+  }
+}

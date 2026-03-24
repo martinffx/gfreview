@@ -3,12 +3,6 @@ import type { FileDiff } from '../entity/Schemas';
 
 import { parseDiffHunks } from '../entity/Transforms';
 
-export type DiffServiceOptions = {
-  client: ForgeClient;
-  projectId: string;
-  mrIid: number;
-};
-
 export type FormattedDiff = {
   path: string;
   oldPath: string;
@@ -25,14 +19,19 @@ export type DiffLine = {
   type: 'context' | 'addition' | 'deletion';
 };
 
-export const DiffService = {
-  async getDiff(opts: DiffServiceOptions): Promise<FormattedDiff[]> {
-    const diffs = await opts.client.getDiff(opts.projectId, opts.mrIid);
+export class DiffService {
+  constructor(
+    private readonly client: ForgeClient,
+    private readonly projectId: string,
+    private readonly mrIid: number,
+  ) {}
 
-    return diffs.map((d) => this.formatFileDiff(d));
-  },
+  async getDiff(): Promise<FormattedDiff[]> {
+    const diffs = await this.client.getDiff(this.projectId, this.mrIid);
+    return diffs.map((d) => DiffService.formatFileDiff(d));
+  }
 
-  formatFileDiff(fileDiff: FileDiff): FormattedDiff {
+  static formatFileDiff(fileDiff: FileDiff): FormattedDiff {
     const hunks = fileDiff.hunks ?? parseDiffHunks(fileDiff.diff);
     const lines: DiffLine[] = [];
 
@@ -93,7 +92,7 @@ export const DiffService = {
       changeType,
       lines,
     };
-  },
+  }
 
   formatForDisplay(diffs: FormattedDiff[]): string {
     const output: string[] = [];
@@ -103,7 +102,7 @@ export const DiffService = {
       output.push('');
 
       for (const line of diff.lines) {
-        const prefix = this.getLinePrefix(line.type);
+        const prefix = DiffService.getLinePrefix(line.type);
         const oldNum = line.oldNumber !== undefined ? String(line.oldNumber).padStart(4) : '    ';
         const newNum = line.newNumber !== undefined ? String(line.newNumber).padStart(4) : '    ';
         output.push(`${oldNum} ${newNum} ${prefix} ${line.content}`);
@@ -113,15 +112,15 @@ export const DiffService = {
     }
 
     return output.join('\n');
-  },
+  }
 
   formatDiffHeader(diff: FormattedDiff): string {
-    const icon = this.getChangeIcon(diff.changeType);
+    const icon = DiffService.getChangeIcon(diff.changeType);
     const path = diff.oldPath !== diff.newPath ? `${diff.oldPath} -> ${diff.newPath}` : diff.path;
     return `${icon} ${path}`;
-  },
+  }
 
-  getChangeIcon(type: FormattedDiff['changeType']): string {
+  static getChangeIcon(type: FormattedDiff['changeType']): string {
     switch (type) {
       case 'added':
         return 'A';
@@ -132,9 +131,9 @@ export const DiffService = {
       default:
         return 'M';
     }
-  },
+  }
 
-  getLinePrefix(type: DiffLine['type']): string {
+  static getLinePrefix(type: DiffLine['type']): string {
     switch (type) {
       case 'addition':
         return '+';
@@ -143,5 +142,5 @@ export const DiffService = {
       default:
         return ' ';
     }
-  },
-};
+  }
+}
