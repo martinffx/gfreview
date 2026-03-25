@@ -1,37 +1,46 @@
-# gfreview Commands Reference
+# gfreview Commands
 
 ## PR Management
 
-gfreview list # List open PRs
-gfreview view <id> # Show PR details
-gfreview create --title <title> --source-branch <branch> --target-branch <branch>
-gfreview delete <id>
-gfreview approve <id>
-gfreview unapprove <id>
-gfreview merge <id>
+| Command | Description |
+|---------|-------------|
+| `list [--state open\|closed\|all]` | List PRs |
+| `view <id>` | Show PR details |
+| `create --title <t> --source-branch <s> --target-branch <t>` | Create PR |
+| `approve <id>` | Approve PR |
+| `merge <id>` | Merge PR |
 
-## Review Workflow
+## Review
 
-gfreview review start <id> # Open session, cache SHAs
-gfreview review comment <id> --file <path> --line <n> --body <text>
-gfreview review comment <id> --file <path> --line-start <n> --line-end <m> --body <text>
-gfreview review submit <id> [--body <text>]
-gfreview review status <id>
-gfreview review discard <id>
-gfreview review refresh <id>
+| Command | Description |
+|---------|-------------|
+| `review start <id>` | Create pending review |
+| `review comment <id> --file <path> --line <n> --body <text>` | Line comment |
+| `review comment <id> --body <text>` | General comment |
+| `review comment <id> --file <path> --line <n> --severity blocker --body <text>` | With severity |
+| `review comment <id> --file <path> --line <n> --body-file <path>` | Body from file |
+| `review status <id>` | Show pending comments |
+| `review submit <id> [--body <summary>]` | Submit review |
+| `review discard <id>` | Delete pending review |
+| `review refresh <id>` | Refresh status |
 
-## Comments
+## Diff & Comments
 
-gfreview diff <id>
-gfreview comments <id>
-gfreview resolve <id> --discussion-id <id>
-gfreview unresolve <id> --discussion-id <id>
-gfreview note <id> --body <text>
+| Command | Description |
+|---------|-------------|
+| `diff <id>` | Show diff with line numbers |
+| `comments <id>` | List posted comments |
 
-## Shared Flags
+## Options
 
---forge gitlab|github # Override detected forge
---project <path> # Override project
---json # JSON output
---body - | @<path> # Read body from stdin or file
---state open|merged|closed|all # Filter for list command
+| Flag | Description |
+|------|-------------|
+| `--body <text>` | Comment body |
+| `--body @path` | Body from file |
+| `--body-file <path>` | Body from file |
+| `--severity blocker\|issue\|suggestion\|nit` | Severity level |
+| `--side new\|old` | Diff side (default: new) |
+| `--json` | JSON output |
+| `--verbose` | Verbose output |
+| `--forge github\|gitlab` | Override forge |
+| `--project <owner/repo>` | Override project |

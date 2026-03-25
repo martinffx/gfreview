@@ -1,141 +1,121 @@
 ---
 name: gfreview
-description: Use when reviewing PRs, posting inline diff comments, addressing PR feedback, or any code review workflow.
+description: Use when the user wants to interact with GitHub PRs or GitLab MRs from the terminal - viewing PRs, posting comments, creating PRs, etc.
 ---
 
 # gfreview
 
-gfreview is a CLI tool for posting inline diff comments on merge/pull requests from the terminal. It provides a consistent interface across GitHub and GitLab forges.
+CLI tool for interacting with GitHub PRs and GitLab MRs from the terminal.
 
 ## Configuration
 
-- GFREVIEW_TOKEN - Required. GitHub PAT or GitLab token
-- GFREVIEW_URL - Default: https://github.com or https://gitlab.com
-- GFREVIEW_FORGE - gitlab or github (auto-detected from git remote)
-- GFREVIEW_PROJECT - Optional: owner/repo or group/project
+| Variable | Description |
+|----------|-------------|
+| GITHUB_TOKEN | GitHub PAT |
+| GITLAB_TOKEN | GitLab token |
+| GITLAB_URL | GitLab URL (default: https://gitlab.com) |
 
-## Agent Workflow
+CLI flags: `--forge github|gitlab`, `--project owner/repo`, `--token`
 
-When performing a code review on a PR/MR, follow this workflow:
+## Commands
 
-### Step 0: Understand Context
+### PR Listing
 
+```
+gfreview list [--state open|closed|all] [--limit n]
 gfreview view <id>
+```
 
-See PR title, description, author, and branches to understand what changes and why.
+### PR Creation
 
-### Step 1: Read the diff
+```
+gfreview create --title <title> --source-branch <branch> --target-branch <branch> [--description <text>] [--draft]
+```
 
-gfreview diff <id>
+### PR Actions
 
-This outputs an LLM-optimized diff format with line numbers that map directly to --line arguments.
+```
+gfreview approve <id>
+gfreview merge <id>
+```
 
-### Step 2: Start review session
+### Diff & Comments
 
-gfreview review start <id>
+```
+gfreview diff <id>          # Show diff with line numbers
+gfreview comments <id>      # List posted comments
+```
 
-This fetches and caches the current diff version SHAs. Required before posting comments.
+### Review Workflow
 
-### Step 3: Stage inline comments
+```
+gfreview review start <id>                      # Create pending review
+gfreview review comment <id> --file <path> --line <n> --body <text>  # Line comment
+gfreview review comment <id> --body <text>                             # General comment
+gfreview review comment <id> --file <path> --line <n> --severity blocker --body <text>
+gfreview review comment <id> --file <path> --line <n> --body-file <path>
+gfreview review status <id>                    # Show pending comments
+gfreview review submit <id> [--body <summary>]
+gfreview review discard <id>                  # Delete pending review
+gfreview review refresh <id>                  # Refresh status
+```
 
-gfreview review comment <id> --file <path> --line <n> --body <text>
+## Options
 
-Repeat for each line. Comments are staged locally (GitHub) or server-side (GitLab).
+| Flag | Description |
+|------|-------------|
+| --body | Comment body (use `@path` for file, `-` for stdin) |
+| --body-file | Read body from file |
+| --severity | blocker, issue, suggestion, nit |
+| --side | new (default) or old |
+| --json | JSON output |
+| --verbose | Verbose output |
 
-### Step 4: Check pending before submit
+## Severity Levels
 
-gfreview review status <id>
+Use `--severity` to categorize line comments:
 
-Verify all comments are staged correctly before submitting.
+| Level | Description |
+|-------|-------------|
+| blocker | Must be fixed before merge |
+| issue | Should be addressed before merge |
+| suggestion | Optional improvement |
+| nit | Minor style suggestion |
 
-### Step 5: Submit review
+Severity is prepended to the comment body.
 
-gfreview review submit <id> [--body <text>]
+## Line Number Mapping
 
-This submits all staged comments as a single review. If PR updated since start, use gfreview review refresh <id> or gfreview review discard <id>.
+For `--line`, use numbers from `gfreview diff <id>`:
 
-### Step 6: Verify
+| Diff prefix | Side |
+|-------------|------|
+| `-` (red) | old |
+| `+` (green) | new |
+| space | new |
 
-gfreview comments <id>
+## Body Input
 
-## Diff Format
-
-gfreview diff outputs:
-FILE src/foo.ts
-CHUNK 42-61
-
-- 42 const result = await processTransaction(tx);
-- 43 return result;
-
-Line number rules:
-
-- - prefix = added line, use new file line number
-- - prefix = removed line, use old file line number
-- space prefix = context line, use new file line number
-
-## Gotchas
-
-- Stale SHAs: If PR updates during review, submit fails. Use review refresh or review discard.
-- Line number mapping: Numbers in diff output work directly with --line.
+```bash
+--body "inline text"
+--body @/path/to/file.md
+--body-file /path/to/file.md
+cat file.md | gfreview review comment <id> --file <path> --line <n> --body -
+```
 
 ## Error Codes
 
-- 0 - Success
-- 1 - User error
-- 2 - API error
-- 3 - Stale review
-
-## References
-
-See references/commands.md and references/workflows.md.
-
-## Writing Good Review Comments
-
-Be specific:
-
-- Bad: "This could be improved"
-- Good: "Consider extracting this logic into a separate validateInput() function"
-
-Explain why:
-
-- Bad: "Use const here"
-- Good: "Use const since this variable is never reassigned"
-
-Suggest solutions:
-
-- Bad: "This is slow"
-- Good: "This O(n²) loop could be O(n) using a Map for lookups"
-
-Use prefixes for severity:
-
-- Nit: - Minor style suggestion
-- Suggestion: - Optional improvement
-- Issue: - Should be addressed before merge
-- Blocker: - Must be fixed
-
-## Multi-line Comments
-
-For commenting on a range of lines:
-gfreview review comment <id> --file <path> --line-start <n> --line-end <m> --body <text>
-
-## Body Input Methods
-
-For long comments, read from file:
-gfreview review comment <id> --file <path> --line <n> --body @/path/to/comment.md
-
-Or from stdin:
-echo "Multi-line comment" | gfreview review comment <id> --file <path> --line <n> --body -
+| Code | Meaning |
+|------|--------|
+| 0 | Success |
+| 1 | User error (invalid input) |
+| 2 | API error |
+| 3 | Stale review |
 
 ## Forge Differences
 
-| Aspect          | GitHub                                 | GitLab                            |
-| --------------- | -------------------------------------- | --------------------------------- |
-| Comment staging | Local (until submit)                   | Server-side (draft notes)         |
-| Draft reviews   | Local only                             | Server-side (accessible anywhere) |
-| Submit          | Single POST /reviews with all comments | POST /draft_notes/bulk_publish    |
-
-## Common Errors
-
-"Review not started" - Run gfreview review start <id> first
-"Line out of range" - Re-run gfreview diff <id> to get current line numbers
-"Permission denied" - Token lacks repo scope (GitHub) or project access (GitLab)
+| Aspect | GitHub | GitLab |
+|--------|--------|--------|
+| Line comments | Pending review API | Draft notes |
+| General comments | Issue comments | MR notes |
+| State | Server-side | Server-side |
