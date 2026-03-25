@@ -553,4 +553,53 @@ export class GitHubClient implements ForgeClient {
   async addNote(projectId: string, mrIid: number, opts: { body: string }): Promise<void> {
     await this.addGeneralComment(projectId, mrIid, { body: opts.body });
   }
+
+  async addStandaloneComment(
+    projectId: string,
+    mrIid: number,
+    opts: CommentOptions,
+  ): Promise<CommentResult> {
+    if (opts.body.length > GITHUB_BODY_MAX_LENGTH) {
+      throw new UserError(
+        `Comment body exceeds GitHub's ${GITHUB_BODY_MAX_LENGTH} character limit (${opts.body.length} characters).`,
+      );
+    }
+
+    if (!opts.file || opts.line === undefined) {
+      return this.addGeneralComment(projectId, mrIid, opts);
+    }
+
+    return this.addStandaloneLineComment(projectId, mrIid, opts);
+  }
+
+  private async addStandaloneLineComment(
+    projectId: string,
+    mrIid: number,
+    opts: CommentOptions,
+  ): Promise<CommentResult> {
+    const { owner, repo } = this.parseProjectId(projectId);
+    const pr = await this.getPR(projectId, mrIid);
+    const formattedBody = this.formatBody(opts.body, opts.severity);
+
+    const comment = await this.request<GitHubReviewComment>(
+      'POST',
+      `/repos/${owner}/${repo}/pulls/${mrIid}/comments`,
+      {
+        body: formattedBody,
+        commit_id: pr.diffVersions?.headSha,
+        path: opts.file,
+        line: opts.line,
+        side: opts.side === 'old' ? 'LEFT' : 'RIGHT',
+      },
+    );
+
+    return {
+      id: comment.id,
+      file: comment.path,
+      line: comment.line ?? undefined,
+      side: comment.side === 'LEFT' ? 'old' : 'new',
+      body: comment.body,
+      createdAt: comment.created_at,
+    };
+  }
 }

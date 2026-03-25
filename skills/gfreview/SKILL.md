@@ -9,11 +9,11 @@ CLI tool for interacting with GitHub PRs and GitLab MRs from the terminal.
 
 ## Configuration
 
-| Variable | Description |
-|----------|-------------|
-| GITHUB_TOKEN | GitHub PAT |
-| GITLAB_TOKEN | GitLab token |
-| GITLAB_URL | GitLab URL (default: https://gitlab.com) |
+| Variable     | Description                              |
+| ------------ | ---------------------------------------- |
+| GITHUB_TOKEN | GitHub PAT                               |
+| GITLAB_TOKEN | GitLab token                             |
+| GITLAB_URL   | GitLab URL (default: https://gitlab.com) |
 
 CLI flags: `--forge github|gitlab`, `--project owner/repo`, `--token`
 
@@ -39,48 +39,57 @@ gfreview approve <id>
 gfreview merge <id>
 ```
 
+### Immediate Comments (No Review Session)
+
+Post comments immediately without starting a review session.
+
+```
+gfreview post <id> --file <path> --line <n> --body <text>  # Line comment
+gfreview post <id> --body <text>                            # General comment
+gfreview post <id> --file <path> --line <n> --severity blocker --body <text>
+gfreview post <id> --file <path> --line <n> --body-file <path>
+```
+
+### Batched Review (Start → Comment → Submit)
+
+Comments grouped in one review with a summary.
+
+```
+gfreview review start <id>                      # Create pending review
+gfreview review comment <id> --file <path> --line <n> --body <text>  # Add to pending review
+gfreview review submit <id> [--body <summary>]  # Submit review
+gfreview review status <id>                    # Show pending comments
+gfreview review discard <id>                   # Delete pending review
+```
+
 ### Diff & Comments
 
 ```
 gfreview diff <id>          # Show diff with line numbers
-gfreview comments <id>      # List posted comments
-```
-
-### Review Workflow
-
-```
-gfreview review start <id>                      # Create pending review
-gfreview review comment <id> --file <path> --line <n> --body <text>  # Line comment
-gfreview review comment <id> --body <text>                             # General comment
-gfreview review comment <id> --file <path> --line <n> --severity blocker --body <text>
-gfreview review comment <id> --file <path> --line <n> --body-file <path>
-gfreview review status <id>                    # Show pending comments
-gfreview review submit <id> [--body <summary>]
-gfreview review discard <id>                  # Delete pending review
-gfreview review refresh <id>                  # Refresh status
+gfreview comments <id>       # List posted comments
 ```
 
 ## Options
 
-| Flag | Description |
-|------|-------------|
-| --body | Comment body (use `@path` for file, `-` for stdin) |
-| --body-file | Read body from file |
-| --severity | blocker, issue, suggestion, nit |
-| --side | new (default) or old |
-| --json | JSON output |
-| --verbose | Verbose output |
+| Flag                 | Description                                        |
+| -------------------- | -------------------------------------------------- |
+| `--body <text>`      | Comment body (use `@path` for file, `-` for stdin) |
+| `--body-file <path>` | Read body from file                                |
+| `--severity`         | blocker, issue, suggestion, nit                    |
+| `--side`             | new (default) or old                               |
+| `--json`             | JSON output                                        |
+| `--verbose`          | Verbose output                                     |
 
 ## Severity Levels
 
 Use `--severity` to categorize line comments:
 
-| Level | Description |
-|-------|-------------|
-| blocker | Must be fixed before merge |
-| issue | Should be addressed before merge |
-| suggestion | Optional improvement |
-| nit | Minor style suggestion |
+| Level      | Description                      |
+| ---------- | -------------------------------- |
+| blocker    | Must be fixed before merge       |
+| issue      | Should be addressed before merge |
+| suggestion | Optional improvement             |
+| nit        | Minor style suggestion           |
 
 Severity is prepended to the comment body.
 
@@ -89,10 +98,10 @@ Severity is prepended to the comment body.
 For `--line`, use numbers from `gfreview diff <id>`:
 
 | Diff prefix | Side |
-|-------------|------|
-| `-` (red) | old |
-| `+` (green) | new |
-| space | new |
+| ----------- | ---- |
+| `-` (red)   | old  |
+| `+` (green) | new  |
+| space       | new  |
 
 ## Body Input
 
@@ -100,22 +109,22 @@ For `--line`, use numbers from `gfreview diff <id>`:
 --body "inline text"
 --body @/path/to/file.md
 --body-file /path/to/file.md
-cat file.md | gfreview review comment <id> --file <path> --line <n> --body -
+cat file.md | gfreview post <id> --file <path> --line <n> --body -
 ```
 
 ## Error Codes
 
-| Code | Meaning |
-|------|--------|
-| 0 | Success |
-| 1 | User error (invalid input) |
-| 2 | API error |
-| 3 | Stale review |
+| Code | Meaning                    |
+| ---- | -------------------------- |
+| 0    | Success                    |
+| 1    | User error (invalid input) |
+| 2    | API error                  |
+| 3    | Stale review               |
 
 ## Forge Differences
 
-| Aspect | GitHub | GitLab |
-|--------|--------|--------|
-| Line comments | Pending review API | Draft notes |
-| General comments | Issue comments | MR notes |
-| State | Server-side | Server-side |
+| Aspect           | GitHub          | GitLab          |
+| ---------------- | --------------- | --------------- |
+| Line comments    | Comments API    | Discussions API |
+| General comments | Issues API      | Notes API       |
+| Review batching  | Pending reviews | Draft notes     |

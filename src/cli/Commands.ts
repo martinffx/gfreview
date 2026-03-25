@@ -123,7 +123,112 @@ export function createProgram(): Command {
     }, opts);
   });
 
-  // review subcommands
+  // comments
+  const commentsCmd = program.command('comments <id>');
+  commentsCmd.description('List PR comments');
+  commentsCmd.action(async (id: string) => {
+    const opts = program.opts<GlobalOptions>();
+    await runCommand(async () => {
+      const config = await loadConfig({
+        forge: opts.forge,
+        project: opts.project,
+        token: opts.token,
+        baseUrl: opts.baseUrl,
+      });
+      const projectId = requireProject(config);
+      const client = await createClient(config);
+      const service = new DiscussionService(client, projectId, parsePrId(id));
+      const comments = await service.list();
+      console.log(service.formatForDisplay(comments));
+    }, opts);
+  });
+
+  // post (standalone - posts immediately)
+  const postCmd = program.command('post <id>');
+  postCmd.description('Post a comment immediately (not batched in a review)');
+  postCmd.option('-f, --file <path>', 'File path');
+  postCmd.option('-l, --line <n>', 'Line number');
+  postCmd.option('-b, --body <text>', 'Comment body (use - for stdin, @path for file)');
+  postCmd.option('--body-file <path>', 'Read comment body from file');
+  postCmd.option('--side <side>', 'Side (new or old)', 'new');
+  postCmd.option('--severity <level>', 'Severity (blocker, issue, suggestion, nit)');
+  postCmd.action(
+    async (
+      id: string,
+      options: {
+        file?: string;
+        line?: string;
+        body?: string;
+        bodyFile?: string;
+        side?: string;
+        severity?: string;
+      },
+    ) => {
+      const opts = program.opts<GlobalOptions>();
+      await runCommand(async () => {
+        const config = await loadConfig({
+          forge: opts.forge,
+          project: opts.project,
+          token: opts.token,
+          baseUrl: opts.baseUrl,
+        });
+        const projectId = requireProject(config);
+        const client = await createClient(config);
+
+        let body: string | undefined;
+        if (options.bodyFile) {
+          body = await readBodyFromArg(`@${options.bodyFile}`);
+        } else if (options.body) {
+          body = await readBodyFromArg(options.body);
+        }
+
+        if (!body) {
+          throw new UserError('Comment body is required. Use --body or --body-file.');
+        }
+
+        let severity: Severity | undefined;
+        if (options.severity) {
+          switch (options.severity) {
+            case 'blocker':
+            case 'issue':
+            case 'suggestion':
+            case 'nit':
+              severity = options.severity;
+              break;
+            default:
+              throw new UserError('Invalid severity. Use: blocker, issue, suggestion, or nit.');
+          }
+        }
+
+        const isLineComment = options.file && options.line;
+        const isGeneralComment = !options.file && !options.line;
+
+        if (!isLineComment && !isGeneralComment) {
+          throw new UserError(
+            'Comments require either --file and --line for line comments, or neither for general comments.\n' +
+              'Example: gfreview post 4 --body "General feedback"\n' +
+              'Example: gfreview post 4 --file src/foo.ts --line 42 --body "Fix this"',
+          );
+        }
+
+        await client.addStandaloneComment(projectId, parsePrId(id), {
+          file: options.file,
+          line: options.line ? parseInt(options.line, 10) : undefined,
+          body,
+          side: options.side === 'old' ? 'old' : 'new',
+          severity,
+        });
+
+        if (isGeneralComment) {
+          console.log('Comment posted to PR #' + id);
+        } else {
+          console.log(`Comment posted to ${options.file}:${options.line}`);
+        }
+      }, opts);
+    },
+  );
+
+  // approve
   const reviewCmd = program.command('review');
 
   // review start
@@ -150,15 +255,15 @@ export function createProgram(): Command {
   });
 
   // review comment
-  const commentCmd = reviewCmd.command('comment <id>');
-  commentCmd.description('Add a comment to a PR (line-specific or general)');
-  commentCmd.option('-f, --file <path>', 'File path');
-  commentCmd.option('-l, --line <n>', 'Line number');
-  commentCmd.option('-b, --body <text>', 'Comment body (use - for stdin, @path for file)');
-  commentCmd.option('--body-file <path>', 'Read comment body from file');
-  commentCmd.option('--side <side>', 'Side (new or old)', 'new');
-  commentCmd.option('--severity <level>', 'Severity (blocker, issue, suggestion, nit)');
-  commentCmd.action(
+  const reviewCommentCmd = reviewCmd.command('comment <id>');
+  reviewCommentCmd.description('Add a comment to pending review (requires review start)');
+  reviewCommentCmd.option('-f, --file <path>', 'File path');
+  reviewCommentCmd.option('-l, --line <n>', 'Line number');
+  reviewCommentCmd.option('-b, --body <text>', 'Comment body (use - for stdin, @path for file)');
+  reviewCommentCmd.option('--body-file <path>', 'Read comment body from file');
+  reviewCommentCmd.option('--side <side>', 'Side (new or old)', 'new');
+  reviewCommentCmd.option('--severity <level>', 'Severity (blocker, issue, suggestion, nit)');
+  reviewCommentCmd.action(
     async (
       id: string,
       options: {
@@ -180,6 +285,13 @@ export function createProgram(): Command {
         });
         const projectId = requireProject(config);
         const client = await createClient(config);
+
+        const pendingReview = await client.getPendingReview(projectId, parsePrId(id));
+        if (!pendingReview) {
+          throw new UserError(
+            `No pending review for PR #${id}. Run "gfreview review start ${id}" to start a review.`,
+          );
+        }
 
         let body: string | undefined;
         if (options.bodyFile) {
@@ -383,26 +495,6 @@ export function createProgram(): Command {
       const service = new DiffService(client, projectId, parsePrId(id));
       const diffs = await service.getDiff();
       console.log(service.formatForDisplay(diffs));
-    }, opts);
-  });
-
-  // comments
-  const commentsCmd = program.command('comments <id>');
-  commentsCmd.description('List PR comments');
-  commentsCmd.action(async (id: string) => {
-    const opts = program.opts<GlobalOptions>();
-    await runCommand(async () => {
-      const config = await loadConfig({
-        forge: opts.forge,
-        project: opts.project,
-        token: opts.token,
-        baseUrl: opts.baseUrl,
-      });
-      const projectId = requireProject(config);
-      const client = await createClient(config);
-      const service = new DiscussionService(client, projectId, parsePrId(id));
-      const comments = await service.list();
-      console.log(service.formatForDisplay(comments));
     }, opts);
   });
 

@@ -441,6 +441,72 @@ export class GitLabClient implements ForgeClient {
     });
   }
 
+  async addStandaloneComment(
+    projectId: string,
+    mrIid: number,
+    opts: CommentOptions,
+  ): Promise<CommentResult> {
+    if (!opts.file || opts.line === undefined) {
+      const encodedId = this.encodeProjectId(projectId);
+      await this.request('POST', `/projects/${encodedId}/merge_requests/${mrIid}/notes`, {
+        body: opts.body,
+      });
+      return {
+        id: Date.now(),
+        body: opts.body,
+        isGeneralComment: true,
+      };
+    }
+
+    return this.addStandaloneLineComment(projectId, mrIid, opts);
+  }
+
+  private async addStandaloneLineComment(
+    projectId: string,
+    mrIid: number,
+    opts: CommentOptions,
+  ): Promise<CommentResult> {
+    const versions = await this.getVersions(projectId, mrIid);
+    const encodedId = this.encodeProjectId(projectId);
+
+    const position: Record<string, string | number | undefined> = {
+      base_sha: versions.baseSha,
+      head_sha: versions.headSha,
+      start_sha: versions.startSha,
+      old_path: opts.file,
+      new_path: opts.file,
+      position_type: 'text',
+    };
+
+    if (opts.side === 'old') {
+      position.old_line = opts.line;
+    } else {
+      position.new_line = opts.line;
+    }
+
+    const discussion = await this.request<GitLabDiscussion>(
+      'POST',
+      `/projects/${encodedId}/merge_requests/${mrIid}/discussions`,
+      {
+        body: opts.body,
+        position,
+      },
+    );
+
+    const note = discussion.notes[0];
+    if (!note) {
+      throw new UserError('Failed to create discussion');
+    }
+    return {
+      id: note.id,
+      file: opts.file,
+      line: opts.line,
+      side: opts.side ?? 'new',
+      body: note.body,
+      createdAt: note.created_at,
+    };
+  }
+
   private transformMR(mr: GitLabMR): PR {
     return {
       id: mr.id,

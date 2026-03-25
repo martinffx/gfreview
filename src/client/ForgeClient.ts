@@ -67,4 +67,9 @@ export interface ForgeClient {
   unresolveDiscussion(projectId: string, mrIid: number, discussionId: string): Promise<void>;
 
   addNote(projectId: string, mrIid: number, opts: { body: string }): Promise<void>;
+  addStandaloneComment(
+    projectId: string,
+    mrIid: number,
+    opts: CommentOptions,
+  ): Promise<CommentResult>;
 }
