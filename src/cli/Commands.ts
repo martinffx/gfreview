@@ -2,6 +2,7 @@ import { Command } from 'commander';
 
 import type { Severity } from '../client/ForgeClient';
 import type { Config } from '../entity/Schemas';
+import { formatVersion } from './Version';
 
 import { GitHubClient } from '../client/GitHubClient';
 import { loadConfig } from '../Config';
@@ -71,7 +72,7 @@ export function createProgram(): Command {
   program
     .name('gfreview')
     .description('CLI for inline diff comments on Git Forge PRs')
-    .version('0.1.0');
+    .version(formatVersion(), '-V, --version');
 
   program
     .option('--forge <forge>', 'Forge to use (github or gitlab, defaults to git remote)')
@@ -79,7 +80,7 @@ export function createProgram(): Command {
     .option('--token <token>', 'API token (or use GITHUB_TOKEN/GITLAB_TOKEN env var)')
     .option('--base-url <url>', 'API base URL (defaults to git remote)')
     .option('--json', 'Output as JSON')
-    .option('--verbose', 'Show verbose output');
+    .option('-v, --verbose', 'Show verbose output');
 
   // list
   const listCmd = program.command('list');

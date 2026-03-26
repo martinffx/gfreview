@@ -25,7 +25,7 @@
     "format": "oxfmt",
     "format:check": "oxfmt --check",
     "test": "bun test",
-    "build": "bun build index.ts --compile --outfile dist/gfreview",
+    "build": "export VERSION=$(git describe --tags --always) && bun build index.ts --compile --define \"VERSION=\\\"$VERSION\\\"\" --outfile dist/gfreview",
     "build:node": "bun build index.ts --outfile dist/gfreview.js --target=node",
     "build:types": "tsgo --emitDeclarationOnly --declarationDir dist --noEmit false"
   },
