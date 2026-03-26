@@ -7,6 +7,7 @@ import type {
   Side,
 } from './ForgeClient';
 
+import { Logger } from '../cli/Logger';
 import { ApiError, UserError } from '../Errors';
 
 const GITHUB_BODY_MAX_LENGTH = 65536;
@@ -90,6 +91,8 @@ export class GitHubClient implements ForgeClient {
   ): Promise<T> {
     const url = `${this.baseUrl}${path}`;
 
+    Logger.debug('api', `${method} ${path}`);
+
     const response = await fetch(url, {
       method,
       headers: {
@@ -100,6 +103,8 @@ export class GitHubClient implements ForgeClient {
       },
       ...(method !== 'GET' && body ? { body: JSON.stringify(body) } : {}),
     });
+
+    Logger.debugResponse('api', method, path, response.status);
 
     if (!response.ok) {
       const errorBody = await response.text();

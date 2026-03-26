@@ -2,6 +2,7 @@ import { execSync } from 'node:child_process';
 
 import type { Config } from './entity/Schemas';
 
+import { Logger } from './cli/Logger';
 import { ConfigSchema } from './entity/Schemas';
 import { UserError } from './Errors';
 
@@ -26,6 +27,13 @@ export async function loadConfig(options?: Partial<Config>): Promise<Config> {
     (forge === 'gitlab' ? (process.env.GITLAB_URL ?? GITLAB_DEFAULT_URL) : GITHUB_DEFAULT_URL);
 
   const project = options?.project ?? (await detectProject(forge));
+
+  Logger.debug('config', 'Detected config', {
+    forge,
+    baseUrl,
+    project,
+    hasToken: !!token,
+  });
 
   return ConfigSchema.parse({
     forge,

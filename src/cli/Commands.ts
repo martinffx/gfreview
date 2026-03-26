@@ -2,7 +2,6 @@ import { Command } from 'commander';
 
 import type { Severity } from '../client/ForgeClient';
 import type { Config } from '../entity/Schemas';
-import { formatVersion } from './Version';
 
 import { GitHubClient } from '../client/GitHubClient';
 import { loadConfig } from '../Config';
@@ -11,7 +10,9 @@ import { DiffService } from '../service/DiffService';
 import { DiscussionService } from '../service/DiscussionService';
 import { ReviewService } from '../service/ReviewService';
 import { readBodyFromArg } from './BodyReader';
+import { Logger } from './Logger';
 import { Output } from './Output';
+import { formatVersion } from './Version';
 
 type GlobalOptions = {
   forge?: 'gitlab' | 'github';
@@ -81,6 +82,11 @@ export function createProgram(): Command {
     .option('--base-url <url>', 'API base URL (defaults to git remote)')
     .option('--json', 'Output as JSON')
     .option('-v, --verbose', 'Show verbose output');
+
+  program.hook('preAction', (thisCommand) => {
+    const opts = thisCommand.opts<GlobalOptions>();
+    Logger.setVerbose(opts.verbose ?? false);
+  });
 
   // list
   const listCmd = program.command('list');

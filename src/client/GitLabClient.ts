@@ -1,6 +1,7 @@
 import type { PR, DiffVersion, Discussion, FileDiff } from '../entity/Schemas';
 import type { ForgeClient, CommentOptions, CommentResult, PendingReview } from './ForgeClient';
 
+import { Logger } from '../cli/Logger';
 import { ApiError, StaleReviewError, UserError } from '../Errors';
 
 type GitLabClientOptions = {
@@ -106,6 +107,8 @@ export class GitLabClient implements ForgeClient {
   ): Promise<T> {
     const url = `${this.baseUrl}/api/v4${path}`;
 
+    Logger.debug('api', `${method} ${path}`);
+
     const response = await fetch(url, {
       method,
       headers: {
@@ -114,6 +117,8 @@ export class GitLabClient implements ForgeClient {
       },
       ...(method !== 'GET' && body ? { body: JSON.stringify(body) } : {}),
     });
+
+    Logger.debugResponse('api', method, path, response.status);
 
     if (!response.ok) {
       const errorBody = await response.text();

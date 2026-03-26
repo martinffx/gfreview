@@ -13,9 +13,7 @@ function getVersionFromPackageJson(): string {
 }
 
 export function formatVersion(): string {
-  const version = (typeof VERSION !== 'undefined' && VERSION)
-    ? VERSION
-    : getVersionFromPackageJson();
+  const version = typeof VERSION !== 'undefined' && VERSION ? VERSION : getVersionFromPackageJson();
   const cleanVersion = version.replace(/^v/, '');
   return `gfreview v${cleanVersion}`;
 }
