@@ -2,7 +2,6 @@ import { Command } from 'commander';
 
 import type { Severity } from '../client/ForgeClient';
 import type { Config } from '../entity/Schemas';
-import { formatVersion } from './Version';
 
 import { GitHubClient } from '../client/GitHubClient';
 import { loadConfig } from '../Config';
@@ -12,6 +11,7 @@ import { DiscussionService } from '../service/DiscussionService';
 import { ReviewService } from '../service/ReviewService';
 import { readBodyFromArg } from './BodyReader';
 import { Output } from './Output';
+import { formatVersion } from './Version';
 
 type GlobalOptions = {
   forge?: 'gitlab' | 'github';
